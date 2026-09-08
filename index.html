@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b7a53">
+<link rel="manifest" href="manifest.json">
+<title>التركي للحسابات</title>
+<style>
+:root{--g:#087f55;--g2:#0b6b49;--bg:#f4f7f6;--card:#fff;--txt:#17201c;--muted:#718079;--line:#e2e9e5;--red:#c0392b;--blue:#2468b3;--shadow:0 5px 18px #0b7a5312}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+header{position:sticky;top:0;z-index:5;background:linear-gradient(135deg,var(--g),#0b9a68);color:#fff;padding:16px 16px 13px;box-shadow:var(--shadow)}
+h1{margin:0;font-size:21px}.sub{font-size:12px;opacity:.85;margin-top:3px}
+nav{display:flex;gap:7px;overflow:auto;padding:10px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:67px;z-index:4}
+nav button{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;font-weight:700;color:#52605a}nav button.active{background:#e7f6ef;color:var(--g);border-color:#b9e5d2}
+main{padding:14px;max-width:900px;margin:auto}.page{display:none}.page.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
+.kpi{font-size:20px;font-weight:800;margin-top:6px}.label{font-size:12px;color:var(--muted)}.green{color:var(--g)}.red{color:var(--red)}.blue{color:var(--blue)}
+h2{font-size:18px;margin:6px 0 12px}h3{font-size:15px;margin:0 0 9px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between}.wrap{flex-wrap:wrap}
+label{display:block;font-size:12px;color:var(--muted);margin:9px 0 5px}input,select,textarea{width:100%;border:1px solid #d6e0db;border-radius:11px;padding:11px;background:#fff;font:inherit;outline:none}input:focus,select:focus,textarea:focus{border-color:#70b99b}textarea{min-height:75px}
+button{font:inherit;cursor:pointer}.btn{border:0;border-radius:11px;padding:10px 13px;font-weight:800;background:var(--g);color:#fff}.btn.secondary{background:#edf2ef;color:#34423c}.btn.danger{background:#fff0ee;color:var(--red);border:1px solid #ffd3ce}.btn.small{padding:7px 9px;font-size:12px}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 6px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}th{color:var(--muted);font-weight:700}
+.list{display:flex;flex-direction:column;gap:8px}.item{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}.empty{text-align:center;color:var(--muted);padding:20px}
+.badge{display:inline-block;padding:4px 7px;border-radius:8px;font-size:11px;font-weight:800;background:#edf2ef}.badge.g{background:#e6f6ee;color:var(--g)}.badge.r{background:#fff0ee;color:var(--red)}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#fff9df;border:1px solid #f2dfa0;padding:11px;border-radius:12px;font-size:12px;color:#6b5715}
+.modal{position:fixed;inset:0;background:#0007;z-index:20;display:none;align-items:flex-end}.modal.show{display:flex}.sheet{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px}.toast{position:fixed;bottom:18px;left:18px;right:18px;background:#18211e;color:#fff;padding:12px;border-radius:12px;text-align:center;z-index:30;display:none}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.sheet{max-width:650px;margin:auto;border-radius:20px;margin-bottom:20px}.modal{align-items:center}}
+</style>
+</head>
+<body>
+<header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 1.0</div></header>
+<nav id="nav">
+<button data-page="home" class="active">الرئيسية</button><button data-page="exchange">الصرافة</button>
+<button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
+<button data-page="accounts">الحسابات</button><button data-page="reports">التقارير</button>
+<button data-page="settings">الإعدادات</button>
+</nav>
+<main>
+<section id="home" class="page active">
+<h2>لوحة التحكم</h2>
+<div class="grid">
+<div class="card"><div class="label">رصيد الكاش</div><div class="kpi green" id="kCash">0</div></div>
+<div class="card"><div class="label">إجمالي أرصدة الحسابات</div><div class="kpi" id="kAccounts">0</div></div>
+<div class="card"><div class="label">إجمالي ديون الزبائن</div><div class="kpi red" id="kDebt">0</div></div>
+<div class="card"><div class="label">صافي الربح المسجل</div><div class="kpi green" id="kProfit">0</div></div>
+</div>
+<div class="card"><h3>اختصارات</h3><div class="actions">
+<button class="btn" onclick="openTx('exchange')">➕ عملية صرف</button>
+<button class="btn secondary" onclick="openTx('income')">💰 إيراد</button>
+<button class="btn secondary" onclick="openTx('expense')">💸 مصروف</button>
+<button class="btn secondary" onclick="openCustomer()">👤 زبون</button>
+</div></div>
+<div class="card"><h3>آخر العمليات</h3><div id="homeRecent"></div></div>
+</section>
+
+<section id="exchange" class="page">
+<h2>الصرافة والحساب</h2>
+<div class="card">
+<div class="grid">
+<div><label>نوع العملية</label><select id="exType"><option value="buy">شراء من الزبون</option><option value="sell">بيع للزبون</option></select></div>
+<div><label>العملة</label><select id="exCurrency"></select></div>
+<div><label>المبلغ بالعملة</label><input id="exAmount" type="number" step="0.01" oninput="calcEx()"></div>
+<div><label>السعر</label><input id="exRate" type="number" step="0.000001" oninput="calcEx()"></div>
+</div>
+<div class="card" style="margin-top:12px;background:#f6fbf8"><div class="label">الناتج بالعملة الأساسية (LYD)</div><div class="kpi green" id="exResult">0.00 د.ل</div></div>
+<div class="grid"><div><label>الحساب المتأثر</label><select id="exAccount"></select></div><div><label>الزبون (اختياري)</label><select id="exCustomer"></select></div></div>
+<label>الربح في العملية (اختياري)</label><input id="exProfit" type="number" step="0.01" value="0">
+<label>ملاحظة</label><textarea id="exNote" placeholder="مثلاً: سعر الكاش..."></textarea>
+<div class="actions"><button class="btn" onclick="saveExchange()">حفظ العملية</button><button class="btn secondary" onclick="clearEx()">مسح</button></div>
+</div>
+<div class="card"><h3>أسعار العملات</h3><div id="ratesTable"></div></div>
+</section>
+
+<section id="transactions" class="page"><h2>العمليات</h2><div class="card"><div class="grid"><div><label>من تاريخ</label><input id="tFrom" type="date"></div><div><label>إلى تاريخ</label><input id="tTo" type="date"></div></div><div class="actions"><button class="btn small" onclick="renderTransactions()">بحث</button><button class="btn secondary small" onclick="clearTxFilter()">الكل</button></div></div><div class="card"><div id="txTable"></div></div></section>
+
+<section id="customers" class="page"><div class="row"><h2>الزبائن والديون</h2><button class="btn small" onclick="openCustomer()">+ زبون</button></div><div class="card"><input id="customerSearch" placeholder="ابحث باسم الزبون..." oninput="renderCustomers()"></div><div id="customerList"></div></section>
+
+<section id="accounts" class="page"><div class="row"><h2>الحسابات والكاش</h2><button class="btn small" onclick="openAccount()">+ حساب</button></div><div id="accountList"></div><div class="card"><h3>تحويل بين الحسابات</h3><div class="grid"><div><label>من</label><select id="trFrom"></select></div><div><label>إلى</label><select id="trTo"></select></div><div><label>المبلغ (د.ل)</label><input id="trAmount" type="number" step=".01"></div><div><label>ملاحظة</label><input id="trNote"></div></div><button class="btn" style="margin-top:10px" onclick="transfer()">تنفيذ التحويل</button></div></section>
+
+<section id="reports" class="page"><h2>التقارير</h2><div class="card"><div class="grid"><div><label>من</label><input id="rFrom" type="date"></div><div><label>إلى</label><input id="rTo" type="date"></div></div><button class="btn" style="margin-top:10px" onclick="renderReports()">تحديث التقرير</button></div><div id="reportBody"></div></section>
+
+<section id="settings" class="page"><h2>الإعدادات والنسخ الاحتياطي</h2>
+<div class="card"><h3>العملات</h3><div id="currencyList"></div><div class="actions"><button class="btn" onclick="openCurrency()">+ إضافة عملة</button></div></div>
+<div class="card"><h3>بيانات التطبيق</h3><p class="label">البيانات محفوظة محليًا على هذا الجهاز. النسخة الاحتياطية هي الطريقة الموصى بها لحفظ نسخة خارجية.</p><div class="actions"><button class="btn" onclick="backup()">📥 تصدير نسخة احتياطية</button><button class="btn secondary" onclick="document.getElementById('restoreFile').click()">📤 استرجاع نسخة</button><input id="restoreFile" type="file" accept=".json" hidden onchange="restore(event)"><button class="btn danger" onclick="resetAll()">حذف كل البيانات</button></div></div>
+<div class="notice">ملاحظة: هذه نسخة PWA تعمل على الآيفون من المتصفح. حماية Face ID/التشفير والنسخ السحابي المتعدد المستخدمين تحتاج النسخة الأصلية المتصلة بخدمة آمنة.</div>
+</section>
+</main>
+<div id="modal" class="modal" onclick="if(event.target.id==='modal')closeModal()"><div class="sheet" id="sheet"></div></div>
+<div id="toast" class="toast"></div>
+<script>
+const KEY='alturki_accounts_v1';
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
+currencies:[{code:'LYD',name:'دينار ليبي',rate:1},{code:'USD',name:'دولار أمريكي',rate:5.40},{code:'TRY',name:'ليرة تركية',rate:.14},{code:'TND',name:'دينار تونسي',rate:1.70},{code:'SAR',name:'ريال سعودي',rate:1.44},{code:'EGP',name:'جنيه مصري',rate:.11},{code:'EUR',name:'يورو',rate:6.30}],
+accounts:[{id:1,name:'الكاش',balance:0},{id:2,name:'المصرف',balance:0}],
+customers:[],transactions:[]
+};
+function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+function fmt(n){return Number(n||0).toLocaleString('ar-LY',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function money(n){return fmt(n)+' د.ل'}
+function today(){return new Date().toISOString().slice(0,10)}
+function toast(s){let x=document.getElementById('toast');x.textContent=s;x.style.display='block';setTimeout(()=>x.style.display='none',2200)}
+function id(){return Date.now()+Math.floor(Math.random()*999)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(b.dataset.page).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderAll()});
+function opts(list,valFn,labelFn,empty='اختر...'){return '<option value="">'+empty+'</option>'+list.map(x=>'<option value="'+valFn(x)+'">'+labelFn(x)+'</option>').join('')}
+function renderSelects(){
+ document.getElementById('exCurrency').innerHTML=opts(db.currencies.filter(x=>x.code!=='LYD'),x=>x.code,x=>x.code+' — '+x.name);
+ document.getElementById('exAccount').innerHTML=opts(db.accounts,x=>x.id,x=>x.name);
+ document.getElementById('exCustomer').innerHTML=opts(db.customers,x=>x.id,x=>x.name,'بدون زبون');
+ ['trFrom','trTo'].forEach(k=>document.getElementById(k).innerHTML=opts(db.accounts,x=>x.id,x=>x.name));
+}
+function calcEx(){let c=db.currencies.find(x=>x.code===document.getElementById('exCurrency').value);let a=+document.getElementById('exAmount').value||0,r=+document.getElementById('exRate').value||(c?.rate||0);document.getElementById('exResult').textContent=money(a*r)}
+document.getElementById('exCurrency').onchange=()=>{let c=db.currencies.find(x=>x.code===document.getElementById('exCurrency').value);if(c)document.getElementById('exRate').value=c.rate;calcEx()}
+function saveExchange(){
+ let code=document.getElementById('exCurrency').value,a=+document.getElementById('exAmount').value,r=+document.getElementById('exRate').value,acc=+document.getElementById('exAccount').value;
+ if(!code||!a||!r||!acc)return toast('أكمل العملة والمبلغ والسعر والحساب');
+ let type=document.getElementById('exType').value, lyd=a*r, profit=+document.getElementById('exProfit').value||0,cust=+document.getElementById('exCustomer').value||null;
+ db.transactions.push({id:id(),date:today(),kind:'exchange',type,amount:a,currency:code,rate:r,lyd,profit,accountId:acc,customerId:cust,note:document.getElementById('exNote').value});
+ let ac=db.accounts.find(x=>x.id===acc); ac.balance += type==='buy'?lyd:-lyd; if(profit) ac.balance+=profit;
+ if(cust){let c=db.customers.find(x=>x.id===cust);c.balance += type==='sell'?lyd:-lyd}
+ save();clearEx();toast('تم حفظ العملية بنجاح');
+}
+function clearEx(){['exAmount','exRate','exProfit','exNote'].forEach(x=>document.getElementById(x).value='');document.getElementById('exResult').textContent='0.00 د.ل'}
+function openTx(kind){
+ document.querySelector('[data-page="exchange"]').click();
+ if(kind==='income'||kind==='expense'){openGeneric(kind)}
+}
+function openGeneric(kind){document.getElementById('modal').classList.add('show');document.getElementById('sheet').innerHTML=`<h2>${kind==='income'?'إضافة إيراد':'إضافة مصروف'}</h2><label>المبلغ (د.ل)</label><input id="gAmount" type="number" step=".01"><label>الحساب</label><select id="gAccount">${opts(db.accounts,x=>x.id,x=>x.name)}</select><label>البيان</label><textarea id="gNote"></textarea><div class="actions"><button class="btn" onclick="saveGeneric('${kind}')">حفظ</button><button class="btn secondary" onclick="closeModal()">إلغاء</button></div>`}
+function saveGeneric(kind){let a=+gAmount.value,ac=+gAccount.value;if(!a||!ac)return toast('أدخل المبلغ والحساب');db.transactions.push({id:id(),date:today(),kind,lyd:a,accountId:ac,note:gNote.value,profit:kind==='income'?a:0});db.accounts.find(x=>x.id===ac).balance+=kind==='income'?a:-a;save();closeModal();toast('تم الحفظ')}
+function renderTransactions(){
+ let f=tFrom.value,to=tTo.value,arr=db.transactions.filter(t=>(!f||t.date>=f)&&(!to||t.date<=to)).slice().reverse();
+ if(!arr.length){txTable.innerHTML='<div class="empty">لا توجد عمليات</div>';return}
+ txTable.innerHTML='<table><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>التفاصيل</th><th></th></tr>'+arr.map(t=>`<tr><td>${t.date}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td><td>${t.currency?`${t.amount} ${t.currency} × ${t.rate}`:''}${t.note?'<br>'+esc(t.note):''}</td><td><button class="btn danger small" onclick="deleteTx(${t.id})">حذف</button></td></tr>`).join('')+'</table>'}
+function kindName(t){return t.kind==='exchange'?(t.type==='buy'?'شراء عملة':'بيع عملة'):t.kind==='income'?'إيراد':'مصروف'}
+function deleteTx(i){if(!confirm('حذف العملية؟ سيتم تعديل رصيد الحساب والزبون.'))return;let t=db.transactions.find(x=>x.id===i);if(!t)return;let ac=db.accounts.find(x=>x.id===t.accountId);if(ac)ac.balance-=t.kind==='exchange'?(t.type==='buy'?t.lyd:-t.lyd)+(t.profit||0):(t.kind==='income'?t.lyd:-t.lyd);if(t.customerId){let c=db.customers.find(x=>x.id===t.customerId);if(c)c.balance-=t.type==='sell'?t.lyd:-t.lyd}db.transactions=db.transactions.filter(x=>x.id!==i);save();toast('تم حذف العملية')}
+function clearTxFilter(){tFrom.value='';tTo.value='';renderTransactions()}
+function openCustomer(i=null){let c=i&&db.customers.find(x=>x.id===i);document.getElementById('modal').classList.add('show');sheet.innerHTML=`<h2>${c?'تعديل زبون':'إضافة زبون'}</h2><label>الاسم</label><input id="cName" value="${c?esc(c.name):''}"><label>الهاتف</label><input id="cPhone" value="${c?esc(c.phone||''):''}"><label>ملاحظة</label><textarea id="cNote">${c?esc(c.note||''):''}</textarea><div class="actions"><button class="btn" onclick="saveCustomer(${i||0})">حفظ</button><button class="btn secondary" onclick="closeModal()">إلغاء</button></div>`}
+function saveCustomer(i){let n=cName.value.trim();if(!n)return toast('اكتب اسم الزبون');if(i){let c=db.customers.find(x=>x.id===i);c.name=n;c.phone=cPhone.value;c.note=cNote.value}else db.customers.push({id:id(),name:n,phone:cPhone.value,note:cNote.value,balance:0});save();closeModal();toast('تم حفظ الزبون')}
+function renderCustomers(){let q=(customerSearch.value||'').toLowerCase();let a=db.customers.filter(c=>c.name.toLowerCase().includes(q));customerList.innerHTML=a.length?a.map(c=>`<div class="card"><div class="row"><div><h3>${esc(c.name)}</h3><span class="label">${esc(c.phone||'بدون هاتف')}</span></div><strong class="${c.balance>0?'red':c.balance<0?'green':''}">${money(c.balance)}</strong></div><div class="actions"><button class="btn small" onclick="customerStatement(${c.id})">كشف حساب</button><button class="btn secondary small" onclick="openCustomer(${c.id})">تعديل</button><button class="btn danger small" onclick="deleteCustomer(${c.id})">حذف</button></div></div>`).join(''):'<div class="card empty">لا يوجد زبائن</div>'}
+function deleteCustomer(i){if(db.transactions.some(t=>t.customerId===i))return toast('لا يمكن حذف زبون لديه عمليات');if(confirm('حذف الزبون؟')){db.customers=db.customers.filter(x=>x.id!==i);save()}}
+function customerStatement(i){let c=db.customers.find(x=>x.id===i),a=db.transactions.filter(t=>t.customerId===i).slice().reverse();document.getElementById('modal').classList.add('show');sheet.innerHTML='<h2>كشف حساب: '+esc(c.name)+'</h2><div class="card">الرصيد الحالي: <b>'+money(c.balance)+'</b></div>'+(a.length?'<table><tr><th>التاريخ</th><th>العملية</th><th>المبلغ</th></tr>'+a.map(t=>`<tr><td>${t.date}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد عمليات</div>')+'<div class="actions"><button class="btn secondary" onclick="closeModal()">إغلاق</button></div>'}
+function openAccount(i=null){let a=i&&db.accounts.find(x=>x.id===i);document.getElementById('modal').classList.add('show');sheet.innerHTML=`<h2>${a?'تعديل حساب':'إضافة حساب'}</h2><label>اسم الحساب</label><input id="aName" value="${a?esc(a.name):''}"><div class="actions"><button class="btn" onclick="saveAccount(${i||0})">حفظ</button><button class="btn secondary" onclick="closeModal()">إلغاء</button></div>`}
+function saveAccount(i){let n=aName.value.trim();if(!n)return toast('اكتب اسم الحساب');if(i)db.accounts.find(x=>x.id===i).name=n;else db.accounts.push({id:id(),name:n,balance:0});save();closeModal();toast('تم حفظ الحساب')}
+function renderAccounts(){accountList.innerHTML=db.accounts.map(a=>`<div class="card"><div class="row"><div><h3>${esc(a.name)}</h3><span class="label">حساب بالعملة الأساسية</span></div><strong>${money(a.balance)}</strong></div><div class="actions"><button class="btn secondary small" onclick="openAccount(${a.id})">تعديل</button></div></div>`).join('')}
+function transfer(){let f=+trFrom.value,t=+trTo.value,a=+trAmount.value;if(!f||!t||f===t||a<=0)return toast('تحقق من الحسابات والمبلغ');let A=db.accounts.find(x=>x.id===f),B=db.accounts.find(x=>x.id===t);if(A.balance<a)return toast('الرصيد غير كافٍ');A.balance-=a;B.balance+=a;db.transactions.push({id:id(),date:today(),kind:'transfer',lyd:a,accountId:f,toAccountId:t,note:trNote.value});save();trAmount.value='';trNote.value='';toast('تم التحويل')}
+function renderReports(){let f=rFrom.value,to=rTo.value,arr=db.transactions.filter(t=>(!f||t.date>=f)&&(!to||t.date<=to));let ex=arr.filter(t=>t.kind==='exchange'),inc=arr.filter(t=>t.kind==='income'),exp=arr.filter(t=>t.kind==='expense');let profit=arr.reduce((s,t)=>s+(t.profit||0),0),volume=ex.reduce((s,t)=>s+t.lyd,0);reportBody.innerHTML=`<div class="grid"><div class="card"><div class="label">حجم الصرافة</div><div class="kpi">${money(volume)}</div></div><div class="card"><div class="label">الإيرادات</div><div class="kpi green">${money(inc.reduce((s,t)=>s+t.lyd,0))}</div></div><div class="card"><div class="label">المصروفات</div><div class="kpi red">${money(exp.reduce((s,t)=>s+t.lyd,0))}</div></div><div class="card"><div class="label">الربح المسجل</div><div class="kpi green">${money(profit)}</div></div></div><div class="card"><h3>حركة العملات</h3>${currencyReport(ex)}</div>`}
+function currencyReport(ex){let codes=[...new Set(ex.map(x=>x.currency))];return codes.length?'<table><tr><th>العملة</th><th>عدد العمليات</th><th>الحجم</th></tr>'+codes.map(c=>{let a=ex.filter(x=>x.currency===c);return `<tr><td>${c}</td><td>${a.length}</td><td>${fmt(a.reduce((s,x)=>s+x.amount,0))} ${c}</td></tr>`}).join('')+'</table>':'<div class="empty">لا توجد حركة</div>'}
+function renderRates(){ratesTable.innerHTML='<table><tr><th>العملة</th><th>الاسم</th><th>السعر مقابل LYD</th><th></th></tr>'+db.currencies.map(c=>`<tr><td><b>${c.code}</b></td><td>${esc(c.name)}</td><td><input style="padding:7px" type="number" step=".000001" value="${c.rate}" onchange="updateRate('${c.code}',this.value)"></td><td>${c.code==='LYD'?'':`<button class="btn danger small" onclick="deleteCurrency('${c.code}')">حذف</button>`}</td></tr>`).join('')+'</table>'}
+function updateRate(c,v){db.currencies.find(x=>x.code===c).rate=+v||0;localStorage.setItem(KEY,JSON.stringify(db));renderRates();if(document.getElementById('exCurrency').value===c)document.getElementById('exRate').value=v}
+function openCurrency(){document.getElementById('modal').classList.add('show');sheet.innerHTML='<h2>إضافة عملة</h2><label>رمز العملة</label><input id="ccode" placeholder="مثلاً GBP"><label>اسم العملة</label><input id="cname" placeholder="جنيه إسترليني"><label>السعر مقابل LYD</label><input id="crate" type="number" step=".000001"><div class="actions"><button class="btn" onclick="saveCurrency()">إضافة</button><button class="btn secondary" onclick="closeModal()">إلغاء</button></div>'}
+function saveCurrency(){let code=ccode.value.trim().toUpperCase(),name=cname.value.trim(),rate=+crate.value;if(!code||!name||!rate)return toast('أكمل البيانات');if(db.currencies.some(x=>x.code===code))return toast('العملة موجودة');db.currencies.push({code,name,rate});save();closeModal();toast('تمت إضافة العملة')}
+function deleteCurrency(c){if(confirm('حذف العملة؟')){db.currencies=db.currencies.filter(x=>x.code!==c);save()}}
+function backup(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='alturki-accounts-backup-'+today()+'.json';a.click();URL.revokeObjectURL(a.href);toast('تم تجهيز النسخة الاحتياطية')}
+function restore(e){let file=e.target.files[0];if(!file)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.currencies||!x.accounts||!x.customers||!x.transactions)throw 0;if(confirm('استبدال البيانات الحالية بالنسخة الاحتياطية؟')){db=x;save();toast('تم الاسترجاع')}}catch{toast('الملف غير صالح')}};r.readAsText(file);e.target.value=''}
+function resetAll(){if(confirm('تحذير: سيتم حذف كل بيانات الحسابات والزبائن والعمليات نهائيًا من هذا الجهاز. هل أنت متأكد؟')){localStorage.removeItem(KEY);location.reload()}}
+function closeModal(){modal.classList.remove('show')}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function renderHome(){kCash.textContent=money(db.accounts.find(x=>x.name==='الكاش')?.balance||0);kAccounts.textContent=money(db.accounts.reduce((s,x)=>s+x.balance,0));kDebt.textContent=money(db.customers.reduce((s,x)=>s+Math.max(0,x.balance),0));kProfit.textContent=money(db.transactions.reduce((s,x)=>s+(x.profit||0),0));let a=db.transactions.slice().reverse().slice(0,6);homeRecent.innerHTML=a.length?a.map(t=>`<div class="item"><div class="row"><span>${kindName(t)}</span><b>${money(t.lyd)}</b></div><div class="label">${t.date} ${t.note?' — '+esc(t.note):''}</div></div>`).join(''):'<div class="empty">لا توجد عمليات بعد</div>'}
+function renderCurrencySettings(){currencyList.innerHTML=db.currencies.map(c=>`<div class="item"><div class="row"><b>${c.code} — ${esc(c.name)}</b><span>${c.rate}</span></div></div>`).join('')}
+function renderAll(){renderSelects();renderHome();renderRates();renderTransactions();renderCustomers();renderAccounts();renderReports();renderCurrencySettings()}
+renderAll();
+</script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+</body></html>

@@ -1,0 +1,11 @@
+{
+  "name": "التركي للحسابات",
+  "short_name": "التركي للحسابات",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f6",
+  "theme_color": "#087f55",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": []
+}
