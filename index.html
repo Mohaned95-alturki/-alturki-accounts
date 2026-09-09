@@ -244,28 +244,43 @@ async function startGlobalLive(){
     refreshGlobalRates(true);
   }
 }
-async function refreshGlobalRates(manual=false){
+async function fetchOneGlobalTick(symbol){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
   try{
-    const url=FX_API+'?symbols='+LIVE_SYMBOLS.join('&symbols=')+'&_='+Date.now();
-    const res=await fetch(url,{cache:'no-store'});
-    if(!res.ok)throw new Error('network');
-    const data=await res.json();
-    const ticks=Array.isArray(data)?data:(data.ticks||data.data||[]);
-    let changed=0;
-    ticks.forEach(applyLiveTick);
-    changed=ticks.length;
-    if(manual&&changed)toast('تم تحديث الأسعار');
+    const res=await fetch('https://biquote.io/api/'+encodeURIComponent(symbol)+'?_='+Date.now(),{cache:'no-store',mode:'cors',signal:controller.signal});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const tick=await res.json();
+    return tick;
+  }finally{clearTimeout(timer);}
+}
+async function refreshGlobalRates(manual=false){
+  let ok=0;
+  try{
+    // Use one REST request per pair as a reliable fallback on iPhone/Safari.
+    // SignalR remains active when available, but REST keeps prices moving even if WebSocket is blocked.
+    const results=await Promise.allSettled(LIVE_SYMBOLS.map(fetchOneGlobalTick));
+    results.forEach(r=>{if(r.status==='fulfilled'&&r.value){
+      const tick=r.value;
+      if(Number.isFinite(Number(tick.mid))){applyLiveTick(tick);ok++;}
+    }});
+    if(ok){
+      setLiveStatus(true,'LIVE — تحديث تلقائي للأسعار');
+      if(manual)toast('تم تحديث الأسعار العالمية');
+    }else if(manual){
+      setLiveStatus(false,'تعذر الوصول للسوق الآن');
+      toast('تعذر تحديث السوق الآن');
+    }
   }catch(e){
-    if(manual)toast('تعذر تحديث السوق الآن');
+    if(manual){setLiveStatus(false,'تعذر الوصول للسوق الآن');toast('تعذر تحديث السوق الآن');}
   }finally{renderGlobalLastUpdate();}
 }
 function autoRefreshGlobalRates(){
   renderGlobalLastUpdate();
+  // Start the true tick stream when possible. If iPhone/Safari blocks it, REST polling keeps the screen updated.
   startGlobalLive();
-  // REST fallback every 30 seconds only if the stream is not connected.
-  setInterval(()=>{
-    if(!globalLiveConnection || globalLiveConnection.state!=='Connected') refreshGlobalRates(false);
-  },30000);
+  refreshGlobalRates(false);
+  setInterval(()=>refreshGlobalRates(false),5000);
 }
 function renderGlobalRates(){
   let usd=getUsdLyd();
