@@ -27,6 +27,9 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 6px;b
 .badge{display:inline-block;padding:4px 7px;border-radius:8px;font-size:11px;font-weight:800;background:#edf2ef}.badge.g{background:#e6f6ee;color:var(--g)}.badge.r{background:#fff0ee;color:var(--red)}
 hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#fff9df;border:1px solid #f2dfa0;padding:11px;border-radius:12px;font-size:12px;color:#6b5715}
 .modal{position:fixed;inset:0;background:#0007;z-index:20;display:none;align-items:flex-end}.modal.show{display:flex}.sheet{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px}.toast{position:fixed;bottom:18px;left:18px;right:18px;background:#18211e;color:#fff;padding:12px;border-radius:12px;text-align:center;z-index:30;display:none}
+
+#printInvoice{display:none}
+@media print{body{background:#fff}body>*{display:none!important}#printInvoice{display:block!important;position:static!important;width:100%!important;padding:0!important;margin:0!important}.invoice-page{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;direction:rtl;color:#111;padding:24px;max-width:760px;margin:0 auto}.invoice-head{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:2px solid #087f55;padding-bottom:14px;margin-bottom:18px}.invoice-logo{width:100px;height:100px;object-fit:contain;border-radius:10px}.invoice-title{font-size:22px;font-weight:800;color:#087f55}.invoice-sub{font-size:12px;color:#666;margin-top:4px}.invoice-meta{font-size:12px;line-height:1.9}.invoice-total{font-size:22px;font-weight:800;color:#087f55;text-align:center;border:2px solid #087f55;border-radius:12px;padding:12px;margin:18px 0}.invoice-table{width:100%;border-collapse:collapse}.invoice-table th,.invoice-table td{border:1px solid #ccc;padding:10px;text-align:right}.invoice-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:55px}.invoice-sign div{border-top:1px solid #555;padding-top:8px;text-align:center;font-size:12px}.invoice-foot{margin-top:28px;border-top:1px solid #ddd;padding-top:10px;font-size:11px;color:#666;line-height:1.8}.no-print{display:none!important}}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.sheet{max-width:650px;margin:auto;border-radius:20px;margin-bottom:20px}.modal{align-items:center}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script></head>
@@ -86,7 +89,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
     <button class="btn" onclick="refreshGlobalRates(true)">🔴 تحديث السوق الآن</button>
     <span id="globalLastUpdate" class="label"></span>
   </div>
-  <div class="actions" style="margin:10px 0;align-items:center"><span id="globalLiveStatus" class="label">🟠 جاري الاتصال بالسوق...</span><span id="globalLastUpdate" class="label"></span><button class="btn" onclick="refreshGlobalRates(true)">🔄 تحديث الآن</button></div><div id="globalRatesTable"></div>
+  <div class="actions" style="margin:10px 0;align-items:center"><span id="globalLiveStatus" class="label">🟠 جاري الاتصال بالسوق...</span><button class="btn" onclick="refreshGlobalRates(true)">🔄 تحديث الآن</button></div><div id="globalRatesTable"></div>
 </div>
 </section>
 
@@ -106,6 +109,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 </main>
 <div id="modal" class="modal" onclick="if(event.target.id==='modal')closeModal()"><div class="sheet" id="sheet"></div></div>
 <div id="toast" class="toast"></div>
+<div id="printInvoice"></div>
 <script>
 const KEY='alturki_accounts_v1';
 let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
@@ -136,7 +140,7 @@ function saveExchange(){
  let code=document.getElementById('exCurrency').value,a=+document.getElementById('exAmount').value,r=+document.getElementById('exRate').value,acc=+document.getElementById('exAccount').value;
  if(!code||!a||!r||!acc)return toast('أكمل العملة والمبلغ والسعر والحساب');
  let type=document.getElementById('exType').value, lyd=a*r, profit=+document.getElementById('exProfit').value||0,cust=+document.getElementById('exCustomer').value||null;
- db.transactions.push({id:id(),date:today(),kind:'exchange',type,amount:a,currency:code,rate:r,lyd,profit,accountId:acc,customerId:cust,note:document.getElementById('exNote').value});
+ const txId=id(); db.transactions.push({id:txId,date:today(),time:new Date().toLocaleTimeString('ar-LY',{hour:'2-digit',minute:'2-digit'}),kind:'exchange',type,amount:a,currency:code,rate:r,lyd,profit,accountId:acc,customerId:cust,note:document.getElementById('exNote').value});
  let ac=db.accounts.find(x=>x.id===acc); ac.balance += type==='buy'?lyd:-lyd; if(profit) ac.balance+=profit;
  if(cust){let c=db.customers.find(x=>x.id===cust);c.balance += type==='sell'?lyd:-lyd}
  save();clearEx();toast('تم حفظ العملية بنجاح');
@@ -151,7 +155,7 @@ function saveGeneric(kind){let a=+gAmount.value,ac=+gAccount.value;if(!a||!ac)re
 function renderTransactions(){
  let f=tFrom.value,to=tTo.value,arr=db.transactions.filter(t=>(!f||t.date>=f)&&(!to||t.date<=to)).slice().reverse();
  if(!arr.length){txTable.innerHTML='<div class="empty">لا توجد عمليات</div>';return}
- txTable.innerHTML='<table><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>التفاصيل</th><th></th></tr>'+arr.map(t=>`<tr><td>${t.date}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td><td>${t.currency?`${t.amount} ${t.currency} × ${t.rate}`:''}${t.note?'<br>'+esc(t.note):''}</td><td><button class="btn danger small" onclick="deleteTx(${t.id})">حذف</button></td></tr>`).join('')+'</table>'}
+ txTable.innerHTML='<table><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>التفاصيل</th><th></th></tr>'+arr.map(t=>`<tr><td>${t.date}${t.time?`<br><span class="label">${esc(t.time)}</span>`:''}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td><td>${t.currency?`${t.amount} ${t.currency} × ${t.rate}`:''}${t.note?'<br>'+esc(t.note):''}</td><td>${t.kind==='exchange'?'<button class="btn small" onclick="showInvoice('+t.id+')">🧾 فاتورة</button> ':''}<button class="btn danger small" onclick="deleteTx(${t.id})">حذف</button></td></tr>`).join('')+'</table>'}
 function kindName(t){return t.kind==='exchange'?(t.type==='buy'?'شراء عملة':'بيع عملة'):t.kind==='income'?'إيراد':'مصروف'}
 function deleteTx(i){if(!confirm('حذف العملية؟ سيتم تعديل رصيد الحساب والزبون.'))return;let t=db.transactions.find(x=>x.id===i);if(!t)return;let ac=db.accounts.find(x=>x.id===t.accountId);if(ac)ac.balance-=t.kind==='exchange'?(t.type==='buy'?t.lyd:-t.lyd)+(t.profit||0):(t.kind==='income'?t.lyd:-t.lyd);if(t.customerId){let c=db.customers.find(x=>x.id===t.customerId);if(c)c.balance-=t.type==='sell'?t.lyd:-t.lyd}db.transactions=db.transactions.filter(x=>x.id!==i);save();toast('تم حذف العملية')}
 function clearTxFilter(){tFrom.value='';tTo.value='';renderTransactions()}
@@ -159,7 +163,7 @@ function openCustomer(i=null){let c=i&&db.customers.find(x=>x.id===i);document.g
 function saveCustomer(i){let n=cName.value.trim();if(!n)return toast('اكتب اسم الزبون');if(i){let c=db.customers.find(x=>x.id===i);c.name=n;c.phone=cPhone.value;c.note=cNote.value}else db.customers.push({id:id(),name:n,phone:cPhone.value,note:cNote.value,balance:0});save();closeModal();toast('تم حفظ الزبون')}
 function renderCustomers(){let q=(customerSearch.value||'').toLowerCase();let a=db.customers.filter(c=>c.name.toLowerCase().includes(q));customerList.innerHTML=a.length?a.map(c=>`<div class="card"><div class="row"><div><h3>${esc(c.name)}</h3><span class="label">${esc(c.phone||'بدون هاتف')}</span></div><strong class="${c.balance>0?'red':c.balance<0?'green':''}">${money(c.balance)}</strong></div><div class="actions"><button class="btn small" onclick="customerStatement(${c.id})">كشف حساب</button><button class="btn secondary small" onclick="openCustomer(${c.id})">تعديل</button><button class="btn danger small" onclick="deleteCustomer(${c.id})">حذف</button></div></div>`).join(''):'<div class="card empty">لا يوجد زبائن</div>'}
 function deleteCustomer(i){if(db.transactions.some(t=>t.customerId===i))return toast('لا يمكن حذف زبون لديه عمليات');if(confirm('حذف الزبون؟')){db.customers=db.customers.filter(x=>x.id!==i);save()}}
-function customerStatement(i){let c=db.customers.find(x=>x.id===i),a=db.transactions.filter(t=>t.customerId===i).slice().reverse();document.getElementById('modal').classList.add('show');sheet.innerHTML='<h2>كشف حساب: '+esc(c.name)+'</h2><div class="card">الرصيد الحالي: <b>'+money(c.balance)+'</b></div>'+(a.length?'<table><tr><th>التاريخ</th><th>العملية</th><th>المبلغ</th></tr>'+a.map(t=>`<tr><td>${t.date}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد عمليات</div>')+'<div class="actions"><button class="btn secondary" onclick="closeModal()">إغلاق</button></div>'}
+function customerStatement(i){let c=db.customers.find(x=>x.id===i),a=db.transactions.filter(t=>t.customerId===i).slice().reverse();document.getElementById('modal').classList.add('show');sheet.innerHTML='<h2>كشف حساب: '+esc(c.name)+'</h2><div class="card">الرصيد الحالي: <b>'+money(c.balance)+'</b></div>'+(a.length?'<table><tr><th>التاريخ</th><th>العملية</th><th>المبلغ</th></tr>'+a.map(t=>`<tr><td>${t.date}${t.time?`<br><span class="label">${esc(t.time)}</span>`:''}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد عمليات</div>')+'<div class="actions"><button class="btn secondary" onclick="closeModal()">إغلاق</button></div>'}
 function openAccount(i=null){let a=i&&db.accounts.find(x=>x.id===i);document.getElementById('modal').classList.add('show');sheet.innerHTML=`<h2>${a?'تعديل حساب':'إضافة حساب'}</h2><label>اسم الحساب</label><input id="aName" value="${a?esc(a.name):''}"><div class="actions"><button class="btn" onclick="saveAccount(${i||0})">حفظ</button><button class="btn secondary" onclick="closeModal()">إلغاء</button></div>`}
 function saveAccount(i){let n=aName.value.trim();if(!n)return toast('اكتب اسم الحساب');if(i)db.accounts.find(x=>x.id===i).name=n;else db.accounts.push({id:id(),name:n,balance:0});save();closeModal();toast('تم حفظ الحساب')}
 function renderAccounts(){accountList.innerHTML=db.accounts.map(a=>`<div class="card"><div class="row"><div><h3>${esc(a.name)}</h3><span class="label">حساب بالعملة الأساسية</span></div><strong>${money(a.balance)}</strong></div><div class="actions"><button class="btn secondary small" onclick="openAccount(${a.id})">تعديل</button></div></div>`).join('')}
@@ -171,7 +175,7 @@ function getUsdToUnit(c){if(c.code==='USD')return 1;if(c.code==='LYD')return get
 function getLydRate(c){
   if(c.code==='LYD') return 1;
   if(c.code==='USD') return getUsdLyd();
-  const usdPerUnit = getUsdPerUnit(c);
+  const usdPerUnit = getUsdToUnit(c);
   return getUsdLyd() * usdPerUnit;
 }
 function syncRates(){let usd=getUsdLyd();db.currencies.forEach(c=>{if(c.code==='LYD')c.rate=1;else if(c.code!=='USD'){let x=getUsdToUnit(c);if(x>0)c.rate=usd/x}})}
@@ -296,6 +300,26 @@ function restore(e){let file=e.target.files[0];if(!file)return;let r=new FileRea
 function resetAll(){if(confirm('تحذير: سيتم حذف كل بيانات الحسابات والزبائن والعمليات نهائيًا من هذا الجهاز. هل أنت متأكد؟')){localStorage.removeItem(KEY);location.reload()}}
 function closeModal(){modal.classList.remove('show')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function showInvoice(txId){
+  const t=db.transactions.find(x=>x.id===txId);
+  if(!t||t.kind!=='exchange')return toast('الفاتورة متاحة لعمليات الصرافة فقط');
+  const c=t.customerId?db.customers.find(x=>x.id===t.customerId):null;
+  const now=t.time||new Date().toLocaleTimeString('ar-LY',{hour:'2-digit',minute:'2-digit'});
+  const no='TRK-'+String(t.id).slice(-8);
+  const type=t.type==='buy'?'شراء عملة من الزبون':'بيع عملة للزبون';
+  const logo='logo.jpg';
+  document.getElementById('printInvoice').innerHTML=`<div class="invoice-page">
+    <div class="invoice-head"><div><div class="invoice-title">شركة التركي للصرافة والحوالات</div><div class="invoice-sub">فاتورة عملية صرافة</div></div><img class="invoice-logo" src="${logo}" alt="شعار شركة التركي"></div>
+    <div class="invoice-meta"><b>رقم الفاتورة:</b> ${no}<br><b>التاريخ:</b> ${esc(t.date)} &nbsp; <b>الوقت:</b> ${esc(now)}<br><b>نوع العملية:</b> ${type}<br><b>الزبون:</b> ${esc(c?.name||'غير محدد')} ${c?.phone?' — '+esc(c.phone):''}</div>
+    <table class="invoice-table" style="margin-top:18px"><tr><th>العملة</th><th>الكمية</th><th>السعر</th><th>الإجمالي بالدينار الليبي</th></tr><tr><td>${esc(t.currency)}</td><td>${fmt(t.amount)}</td><td>${fmt(t.rate)}</td><td><b>${money(t.lyd)}</b></td></tr></table>
+    <div class="invoice-total">الإجمالي: ${money(t.lyd)}</div>
+    <div><b>ملاحظات:</b> ${esc(t.note||'—')}</div>
+    <div class="invoice-sign"><div>توقيع الزبون</div><div>توقيع الشركة / الختم</div></div>
+    <div class="invoice-foot"><b>العناوين:</b><br>المشير — خلف مصرف ليبيا المركزي، بجوار زنقة الحرير<br>فرع تاجوراء الوسط — سوق الذهب، خلف بريد تاجوراء<br><b>للاستفسار:</b> 0922142452 | 0919868210 | 0919444088</div>
+  </div>`;
+  window.print();
+}
+function printInvoice(txId){showInvoice(txId)}
 function renderHome(){kCash.textContent=money(db.accounts.find(x=>x.name==='الكاش')?.balance||0);kAccounts.textContent=money(db.accounts.reduce((s,x)=>s+x.balance,0));kDebt.textContent=money(db.customers.reduce((s,x)=>s+Math.max(0,x.balance),0));kProfit.textContent=money(db.transactions.reduce((s,x)=>s+(x.profit||0),0));let a=db.transactions.slice().reverse().slice(0,6);homeRecent.innerHTML=a.length?a.map(t=>`<div class="item"><div class="row"><span>${kindName(t)}</span><b>${money(t.lyd)}</b></div><div class="label">${t.date} ${t.note?' — '+esc(t.note):''}</div></div>`).join(''):'<div class="empty">لا توجد عمليات بعد</div>'}
 function renderCurrencySettings(){currencyList.innerHTML=db.currencies.map(c=>`<div class="item"><div class="row"><b>${c.code} — ${esc(c.name)}</b><span>${c.rate}</span></div></div>`).join('')}
 function renderAll(){renderSelects();renderHome();renderRates();renderTransactions();renderCustomers();renderAccounts();renderReports();renderCurrencySettings()}
