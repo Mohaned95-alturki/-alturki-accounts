@@ -257,30 +257,36 @@ async function fetchOneGlobalTick(symbol){
 async function refreshGlobalRates(manual=false){
   let ok=0;
   try{
-    // Use one REST request per pair as a reliable fallback on iPhone/Safari.
-    // SignalR remains active when available, but REST keeps prices moving even if WebSocket is blocked.
-    const results=await Promise.allSettled(LIVE_SYMBOLS.map(fetchOneGlobalTick));
-    results.forEach(r=>{if(r.status==='fulfilled'&&r.value){
-      const tick=r.value;
-      if(Number.isFinite(Number(tick.mid))){applyLiveTick(tick);ok++;}
-    }});
+    // Batch request: one browser request for all pairs. This is more reliable on iPhone/Safari than many parallel requests.
+    const qs=LIVE_SYMBOLS.map(s=>'symbols='+encodeURIComponent(s)).join('&');
+    const res=await fetch('https://biquote.io/api/latest?'+qs+'&_='+Date.now(),{cache:'no-store',mode:'cors',headers:{'Accept':'application/json'}});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    LIVE_SYMBOLS.forEach(symbol=>{
+      const tick=data && (data[symbol] || data[symbol.toUpperCase()] || data[symbol.toLowerCase()]);
+      if(tick && Number.isFinite(Number(tick.mid))){ applyLiveTick({...tick,symbol:symbol}); ok++; }
+    });
     if(ok){
       setLiveStatus(true,'LIVE — تحديث تلقائي للأسعار');
       if(manual)toast('تم تحديث الأسعار العالمية');
-    }else if(manual){
-      setLiveStatus(false,'تعذر الوصول للسوق الآن');
-      toast('تعذر تحديث السوق الآن');
+    } else {
+      throw new Error('No live quotes');
     }
   }catch(e){
-    if(manual){setLiveStatus(false,'تعذر الوصول للسوق الآن');toast('تعذر تحديث السوق الآن');}
+    // Fallback to individual endpoints if the batch endpoint is temporarily unavailable.
+    const results=await Promise.allSettled(LIVE_SYMBOLS.map(fetchOneGlobalTick));
+    results.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value&&Number.isFinite(Number(r.value.mid))){
+      applyLiveTick({...r.value,symbol:LIVE_SYMBOLS[i]}); ok++;
+    }});
+    if(ok){ setLiveStatus(true,'LIVE — تحديث تلقائي للأسعار'); if(manual)toast('تم تحديث الأسعار العالمية'); }
+    else if(manual){ setLiveStatus(false,'تعذر الوصول للسوق الآن'); toast('تعذر تحديث السوق الآن'); }
   }finally{renderGlobalLastUpdate();}
 }
 function autoRefreshGlobalRates(){
   renderGlobalLastUpdate();
-  // Start the true tick stream when possible. If iPhone/Safari blocks it, REST polling keeps the screen updated.
   startGlobalLive();
   refreshGlobalRates(false);
-  setInterval(()=>refreshGlobalRates(false),5000);
+  setInterval(()=>refreshGlobalRates(false),10000);
 }
 function renderGlobalRates(){
   let usd=getUsdLyd();
