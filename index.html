@@ -29,12 +29,12 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 .modal{position:fixed;inset:0;background:#0007;z-index:20;display:none;align-items:flex-end}.modal.show{display:flex}.sheet{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px}.toast{position:fixed;bottom:18px;left:18px;right:18px;background:#18211e;color:#fff;padding:12px;border-radius:12px;text-align:center;z-index:30;display:none}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.sheet{max-width:650px;margin:auto;border-radius:20px;margin-bottom:20px}.modal{align-items:center}}
 </style>
-</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script></head>
 <body>
 <header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 1.0</div></header>
 <nav id="nav">
 <button data-page="home" class="active">الرئيسية</button><button data-page="exchange">الصرافة</button>
-<button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
+<button data-page="global">العالمية</button><button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
 <button data-page="accounts">الحسابات</button><button data-page="reports">التقارير</button>
 <button data-page="settings">الإعدادات</button>
 </nav>
@@ -71,7 +71,23 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 <label>ملاحظة</label><textarea id="exNote" placeholder="مثلاً: سعر الكاش..."></textarea>
 <div class="actions"><button class="btn" onclick="saveExchange()">حفظ العملية</button><button class="btn secondary" onclick="clearEx()">مسح</button></div>
 </div>
-<div class="card"><h3>أسعار العملات</h3><div class="notice" style="margin-bottom:10px">الدولار هو العملة الأساسية: غيّر سعر USD مقابل الدينار الليبي، وسيُعاد حساب أسعار كل العملات تلقائيًا. ولتعديل علاقة عملة بالدولار، غيّر خانة «1 USD =». </div><div id="ratesTable"></div></div>
+<div class="card"><h3>أسعار العملات</h3><div class="notice" style="margin-bottom:10px">الدولار هو العملة الأساسية: غيّر سعر USD مقابل الدينار الليبي، وسيُعاد حساب أسعار كل العملات تلقائيًا. خانة «1 USD =» تعني كم وحدة من العملة تساوي دولارًا واحدًا. </div><div id="ratesTable"></div></div>
+</section>
+
+
+<section id="global" class="page">
+<h2>الأسعار العالمية</h2><div class="notice">🟢 <b>أسعار عالمية LIVE</b> — المصدر: BiQuote. البث يتحدث عند وصول tick من السوق.</div><div class="notice">سعر الدولار في ليبيا هو المدخل الأساسي. مثال: إذا USD = 9.25 د.ل، وسعر السوق العالمي 1 USD = 48.46 TRY، فإن 1 TRY = 9.25 ÷ 48.46 = 0.1909 د.ل. أي تغيير في سعر الدولار ينعكس فورًا على كل العملات.</div>
+<div class="card">
+  <div class="notice">
+    الدولار هو الأساس هنا: <b>1 USD</b> يساوي العدد اللحظي الظاهر من كل عملة حسب سوق العملات.
+    عند تغيير سعر الدولار مقابل الدينار الليبي، تتحدث خانة <b>السعر مقابل LYD</b> فورًا. الأسعار العالمية تتجدد تلقائيًا أثناء فتح التطبيق.
+  </div>
+  <div class="actions" style="margin:10px 0;align-items:center"><span class="label">🟢 🌍 أسعار عالمية LIVE</span>
+    <button class="btn" onclick="refreshGlobalRates(true)">🔴 تحديث السوق الآن</button>
+    <span id="globalLastUpdate" class="label"></span>
+  </div>
+  <div class="actions" style="margin:10px 0;align-items:center"><span id="globalLiveStatus" class="label">🟠 جاري الاتصال بالسوق...</span><span id="globalLastUpdate" class="label"></span><button class="btn" onclick="refreshGlobalRates(true)">🔄 تحديث الآن</button></div><div id="globalRatesTable"></div>
+</div>
 </section>
 
 <section id="transactions" class="page"><h2>العمليات</h2><div class="card"><div class="grid"><div><label>من تاريخ</label><input id="tFrom" type="date"></div><div><label>إلى تاريخ</label><input id="tTo" type="date"></div></div><div class="actions"><button class="btn small" onclick="renderTransactions()">بحث</button><button class="btn secondary small" onclick="clearTxFilter()">الكل</button></div></div><div class="card"><div id="txTable"></div></div></section>
@@ -97,8 +113,8 @@ currencies:[{code:'LYD',name:'دينار ليبي',rate:1},{code:'USD',name:'د�
 accounts:[{id:1,name:'الكاش',balance:0},{id:2,name:'المصرف',balance:0}],
 customers:[],transactions:[]
 };
-// Migration: older versions stored only LYD rates. Preserve their relative rates as USD relationships.
-(function migrateRates(){let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;let usdRate=+usd.rate||5.40;db.currencies.forEach(c=>{if(c.code!=='LYD'&&c.code!=='USD'&&!(+c.usdToUnit>0)&&(+c.rate>0))c.usdToUnit=usdRate/(+c.rate);});syncRatesEarly();localStorage.setItem(KEY,JSON.stringify(db));})();
+// Migration: normalize all currency relationships to '1 USD = X units'.
+(function migrateRates(){let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;let usdRate=+usd.rate||5.40;db.currencies.forEach(c=>{if(c.code==='LYD'||c.code==='USD')return;if(!(+c.usdToUnit>0)&&(+c.rate>0))c.usdToUnit=usdRate/(+c.rate);});syncRatesEarly();localStorage.setItem(KEY,JSON.stringify(db));})();
 function syncRatesEarly(){let usd=+(db.currencies.find(x=>x.code==='USD')?.rate||0);db.currencies.forEach(c=>{if(c.code==='LYD')c.rate=1;else if(c.code!=='USD'&&+c.usdToUnit>0)c.rate=usd/(+c.usdToUnit)})}
 function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
 function fmt(n){return Number(n||0).toLocaleString('ar-LY',{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -152,11 +168,126 @@ function renderReports(){let f=rFrom.value,to=rTo.value,arr=db.transactions.filt
 function currencyReport(ex){let codes=[...new Set(ex.map(x=>x.currency))];return codes.length?'<table><tr><th>العملة</th><th>عدد العمليات</th><th>الحجم</th></tr>'+codes.map(c=>{let a=ex.filter(x=>x.currency===c);return `<tr><td>${c}</td><td>${a.length}</td><td>${fmt(a.reduce((s,x)=>s+x.amount,0))} ${c}</td></tr>`}).join('')+'</table>':'<div class="empty">لا توجد حركة</div>'}
 function getUsdLyd(){return +(db.currencies.find(x=>x.code==='USD')?.rate||0)}
 function getUsdToUnit(c){if(c.code==='USD')return 1;if(c.code==='LYD')return getUsdLyd();if(Number.isFinite(+c.usdToUnit)&&+c.usdToUnit>0)return +c.usdToUnit;let oldUsd=getUsdLyd()||1;return c.rate>0?oldUsd/c.rate:0}
-function getLydRate(c){if(c.code==='LYD')return 1;if(c.code==='USD')return getUsdLyd();let x=getUsdToUnit(c);return x>0?getUsdLyd()/x:0}
+function getLydRate(c){
+  if(c.code==='LYD') return 1;
+  if(c.code==='USD') return getUsdLyd();
+  const usdPerUnit = getUsdPerUnit(c);
+  return getUsdLyd() * usdPerUnit;
+}
 function syncRates(){let usd=getUsdLyd();db.currencies.forEach(c=>{if(c.code==='LYD')c.rate=1;else if(c.code!=='USD'){let x=getUsdToUnit(c);if(x>0)c.rate=usd/x}})}
-function renderRates(){syncRates();let usd=getUsdLyd();ratesTable.innerHTML='<div class="card" style="margin-bottom:10px;background:#f6fbf8"><label>سعر الدولار مقابل الدينار الليبي (1 USD)</label><input id="usdLydInput" type="number" min="0.000001" step=".000001" value="${usd}" onchange="setUsdLyd(this.value)"><div class="label" style="margin-top:6px">غيّر هذا الرقم فقط لتحديث أسعار كل العملات المرتبطة بالدولار تلقائيًا.</div></div><table><tr><th>العملة</th><th>الاسم</th><th>1 USD =</th><th>السعر مقابل LYD</th><th></th></tr>'+db.currencies.map(c=>{let u=c.code==='LYD'?usd:c.code==='USD'?1:getUsdToUnit(c),lyd=getLydRate(c);let editable=c.code!=='LYD'&&c.code!=='USD';return `<tr><td><b>${c.code}</b></td><td>${esc(c.name)}</td><td>${editable?`<input style="padding:7px" type="number" min="0.000001" step=".000001" value="${u}" onchange="updateRate('${c.code}',this.value)">`:(c.code==='USD'?'1':'—')}</td><td><b>${fmt(lyd)}</b></td><td>${c.code==='LYD'||c.code==='USD'?'':`<button class="btn danger small" onclick="deleteCurrency('${c.code}')">حذف</button>`}</td></tr>`}).join('')+'</table>'}
-function setUsdLyd(v){v=+v;if(!v||v<=0)return toast('أدخل سعرًا صحيحًا للدولار');let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;usd.rate=v;syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderSelects();let c=db.currencies.find(x=>x.code===document.getElementById('exCurrency').value);if(c){document.getElementById('exRate').value=getLydRate(c);calcEx()}toast('تم تحديث سعر الدولار وأسعار العملات تلقائيًا')}
-function updateRate(c,v){v=+v;if(!v||v<=0)return toast('أدخل سعرًا صحيحًا');let cur=db.currencies.find(x=>x.code===c);if(!cur)return;if(c==='USD'){cur.rate=v}else{cur.usdToUnit=v;cur.rate=getUsdLyd()/v}syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderSelects();let sel=document.getElementById('exCurrency');if(sel.value===c){document.getElementById('exRate').value=getLydRate(cur);calcEx()}toast(c==='USD'?'تم تحديث سعر الدولار وأسعار العملات تلقائيًا':'تم تحديث سعر العملة مقابل الدولار')}
+function renderRates(){
+  syncRates();
+  let usd=getUsdLyd();
+  ratesTable.innerHTML='<div class="card" style="margin-bottom:10px;background:#f6fbf8"><label>سعر الدولار مقابل الدينار الليبي (1 USD)</label><input id="usdLydInput" type="number" min="0.000001" step=".000001" value="'+usd+'" onchange="setUsdLyd(this.value)"><div class="label" style="margin-top:6px">غيّر هذا الرقم لتحديث أسعار LYD تلقائيًا.</div><button class="btn secondary small" style="margin-top:8px" onclick="repairRates()">إعادة ضبط علاقات العملات</button></div><table><tr><th>العملة</th><th>الاسم</th><th>1 USD =</th><th>السعر مقابل LYD</th><th></th></tr>'+db.currencies.map(c=>{let u=c.code==='LYD'?usd:c.code==='USD'?1:getUsdToUnit(c),lyd=getLydRate(c);let editable=c.code!=='LYD'&&c.code!=='USD';return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td>'+ (editable?'<input style="padding:7px" type="number" min="0.000001" step=".000001" value="'+u+'" onchange="updateRate(\''+c.code+'\',this.value)">':(c.code==='USD'?'1':'—')) +'</td><td><b>'+fmt(lyd)+'</b></td><td>'+ (c.code==='LYD'||c.code==='USD'?'':'<button class="btn danger small" onclick="deleteCurrency(\''+c.code+'\')">حذف</button>')+'</td></tr>'}).join('')+'</table>';
+  renderGlobalRates();
+}
+
+const FX_API='https://biquote.io/api/latest';
+const GLOBAL_UPDATE_KEY='alturki_global_fx_last_update';
+const GLOBAL_LIVE_STATUS_KEY='alturki_global_fx_live';
+const LIVE_SYMBOLS=['USDTRY','USDTND','USDEGP','USDSAR','EURUSD'];
+const PAIR_TO_CODE={USDTRY:'TRY',USDTND:'TND',USDEGP:'EGP',USDSAR:'SAR',EURUSD:'EUR'};
+let globalLiveConnection=null;
+
+function globalLastUpdate(){return +(localStorage.getItem(GLOBAL_UPDATE_KEY)||0)}
+function formatGlobalTime(ts){
+  if(!ts)return 'لم يتم التحديث بعد';
+  return 'آخر تحديث: '+new Date(ts).toLocaleString('ar-LY',{dateStyle:'medium',timeStyle:'medium'});
+}
+function setLiveStatus(ok,text){
+  const el=document.getElementById('globalLiveStatus');
+  if(el){el.textContent=(ok?'🟢 ':'🟠 ')+text;el.className='label';}
+  localStorage.setItem(GLOBAL_LIVE_STATUS_KEY,ok?'1':'0');
+}
+function renderGlobalLastUpdate(){
+  const el=document.getElementById('globalLastUpdate');
+  if(el)el.textContent=formatGlobalTime(globalLastUpdate());
+}
+function applyLiveTick(tick){
+  if(!tick||!tick.symbol||!Number.isFinite(Number(tick.mid)))return;
+  const code=PAIR_TO_CODE[tick.symbol];
+  if(!code)return;
+  let unitsPerUsd=Number(tick.mid);
+  if(code==='EUR') unitsPerUsd=1/unitsPerUsd;
+  if(!(unitsPerUsd>0))return;
+  const c=db.currencies.find(x=>x.code===code);
+  if(!c)return;
+  c.usdToUnit=unitsPerUsd;
+  c.rate=getUsdLyd()/unitsPerUsd;
+  c.liveTimestamp=tick.timestamp||new Date().toISOString();
+  c.liveSource='BiQuote Live';
+  localStorage.setItem(KEY,JSON.stringify(db));
+  localStorage.setItem(GLOBAL_UPDATE_KEY,String(Date.now()));
+  renderRates(); renderGlobalRates(); renderSelects();
+  renderGlobalLastUpdate();
+}
+async function startGlobalLive(){
+  if(typeof signalR==='undefined'){setLiveStatus(false,'تعذر تشغيل البث المباشر');return;}
+  try{
+    globalLiveConnection=new signalR.HubConnectionBuilder()
+      .withUrl('https://biquote.io/hubs/tick')
+      .withAutomaticReconnect()
+      .build();
+    globalLiveConnection.on('ReceiveTick',applyLiveTick);
+    globalLiveConnection.onreconnecting(()=>setLiveStatus(false,'إعادة الاتصال بالسوق...'));
+    globalLiveConnection.onreconnected(()=>setLiveStatus(true,'LIVE — السوق متصل'));
+    globalLiveConnection.onclose(()=>setLiveStatus(false,'السوق غير متصل'));
+    await globalLiveConnection.start();
+    await globalLiveConnection.invoke('Subscribe',LIVE_SYMBOLS);
+    setLiveStatus(true,'LIVE — أسعار السوق مباشرة');
+  }catch(e){
+    setLiveStatus(false,'تعذر الاتصال المباشر — جارٍ استخدام آخر سعر محفوظ');
+    refreshGlobalRates(true);
+  }
+}
+async function refreshGlobalRates(manual=false){
+  try{
+    const url=FX_API+'?symbols='+LIVE_SYMBOLS.join('&symbols=')+'&_='+Date.now();
+    const res=await fetch(url,{cache:'no-store'});
+    if(!res.ok)throw new Error('network');
+    const data=await res.json();
+    const ticks=Array.isArray(data)?data:(data.ticks||data.data||[]);
+    let changed=0;
+    ticks.forEach(applyLiveTick);
+    changed=ticks.length;
+    if(manual&&changed)toast('تم تحديث الأسعار');
+  }catch(e){
+    if(manual)toast('تعذر تحديث السوق الآن');
+  }finally{renderGlobalLastUpdate();}
+}
+function autoRefreshGlobalRates(){
+  renderGlobalLastUpdate();
+  startGlobalLive();
+  // REST fallback every 30 seconds only if the stream is not connected.
+  setInterval(()=>{
+    if(!globalLiveConnection || globalLiveConnection.state!=='Connected') refreshGlobalRates(false);
+  },30000);
+}
+function renderGlobalRates(){
+  let usd=getUsdLyd();
+  let box=document.getElementById('globalRatesTable');
+  if(!box) return;
+  renderGlobalLastUpdate();
+  box.innerHTML='<table><tr><th>الرمز</th><th>العملة</th><th>1 USD =</th><th>السعر مقابل LYD</th></tr>'+
+    db.currencies.map(c=>{
+      let units=c.code==='LYD'?usd:c.code==='USD'?1:getUsdToUnit(c);
+      let lyd=getLydRate(c);
+      let editable=c.code!=='LYD'&&c.code!=='USD';
+      return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td>'+
+        (editable?'<input style="padding:7px;width:100%" type="number" min="0.000001" step=".000001" value="'+units+'" onchange="updateRate(\''+c.code+'\',this.value)">':(c.code==='USD'?'1':'—'))+
+        '</td><td><b>'+fmt(lyd)+'</b> د.ل</td></tr>';
+    }).join('')+'</table>';
+}
+function setUsdLyd(v){v=+v;if(!v||v<=0)return toast('أدخل سعرًا صحيحًا للدولار');let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;usd.rate=v;syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderGlobalRates();renderSelects();let c=db.currencies.find(x=>x.code===document.getElementById('exCurrency').value);if(c){document.getElementById('exRate').value=getLydRate(c);calcEx()}toast('تم تحديث سعر الدولار وأسعار العملات تلقائيًا')}
+function repairRates(){
+  let usd=getUsdLyd();
+  const defaults={TRY:38.5714285714,TND:3.1764705882,SAR:3.75,EGP:49.0909090909,EUR:0.8571428571};
+  db.currencies.forEach(c=>{if(c.code==='LYD'||c.code==='USD')return;if(defaults[c.code]&&!(+c.usdToUnit>0))c.usdToUnit=defaults[c.code];});
+  // For the standard currencies, restore their original LYD relationships if the stored data is clearly inconsistent.
+  db.currencies.forEach(c=>{if(c.code!=='LYD'&&c.code!=='USD'&&defaults[c.code]){c.usdToUnit=defaults[c.code];c.rate=usd/c.usdToUnit;}});
+  syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderGlobalRates();renderSelects();toast('تم تصحيح علاقات العملات مقابل الدولار');
+}
+function updateRate(c,v){v=+v;if(!v||v<=0)return toast('أدخل سعرًا صحيحًا');let cur=db.currencies.find(x=>x.code===c);if(!cur)return;if(c==='USD'){cur.rate=v}else{cur.usdToUnit=v;cur.rate=getUsdLyd()/v}syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderGlobalRates();renderSelects();let sel=document.getElementById('exCurrency');if(sel.value===c){document.getElementById('exRate').value=getLydRate(cur);calcEx()}toast(c==='USD'?'تم تحديث سعر الدولار وأسعار العملات تلقائيًا':'تم تحديث سعر العملة مقابل الدولار')}
 function openCurrency(){document.getElementById('modal').classList.add('show');sheet.innerHTML='<h2>إضافة عملة</h2><label>رمز العملة</label><input id="ccode" placeholder="مثلاً GBP"><label>اسم العملة</label><input id="cname" placeholder="جنيه إسترليني"><label>1 USD = كم من هذه العملة؟</label><input id="crate" type="number" step=".000001" min=".000001"><div class="actions"><button class="btn" onclick="saveCurrency()">إضافة</button><button class="btn secondary" onclick="closeModal()">إلغاء</button></div>'}
 function saveCurrency(){let code=ccode.value.trim().toUpperCase(),name=cname.value.trim(),rate=+crate.value;if(!code||!name||!rate)return toast('أكمل البيانات');if(db.currencies.some(x=>x.code===code))return toast('العملة موجودة');db.currencies.push({code,name,usdToUnit:rate,rate:getUsdLyd()/rate});save();closeModal();toast('تمت إضافة العملة')}
 function deleteCurrency(c){if(confirm('حذف العملة؟')){db.currencies=db.currencies.filter(x=>x.code!==c);save()}}
@@ -170,5 +301,7 @@ function renderCurrencySettings(){currencyList.innerHTML=db.currencies.map(c=>`<
 function renderAll(){renderSelects();renderHome();renderRates();renderTransactions();renderCustomers();renderAccounts();renderReports();renderCurrencySettings()}
 renderAll();
 </script>
-<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+autoRefreshGlobalRates();
+</script>
 </body></html>
