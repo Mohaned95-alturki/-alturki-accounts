@@ -118,7 +118,7 @@ accounts:[{id:1,name:'الكاش',balance:0},{id:2,name:'المصرف',balance:0
 customers:[],transactions:[]
 };
 // Migration: normalize all currency relationships to '1 USD = X units'.
-(function migrateRates(){let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;let usdRate=+usd.rate||5.40;db.currencies.forEach(c=>{if(c.code==='LYD'||c.code==='USD')return;if(!(+c.usdToUnit>0)&&(+c.rate>0))c.usdToUnit=usdRate/(+c.rate);});syncRatesEarly();localStorage.setItem(KEY,JSON.stringify(db));})();
+(function migrateRates(){let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;let usdRate=+usd.rate||5.40;const sane={TRY:38.5714285714,TND:3.1764705882,SAR:3.75,EGP:49.0909090909,EUR:0.8571428571};db.currencies.forEach(c=>{if(c.code==='LYD'||c.code==='USD')return;if(!(+c.usdToUnit>0)&&(+c.rate>0))c.usdToUnit=usdRate/(+c.rate);if(sane[c.code] && (+c.usdToUnit>0) && ((c.code!=='EUR' && (+c.usdToUnit<1 || +c.usdToUnit>1000)) || (c.code==='EUR' && (+c.usdToUnit<0.2 || +c.usdToUnit>2)))) c.usdToUnit=sane[c.code];});syncRatesEarly();localStorage.setItem(KEY,JSON.stringify(db));})();
 function syncRatesEarly(){let usd=+(db.currencies.find(x=>x.code==='USD')?.rate||0);db.currencies.forEach(c=>{if(c.code==='LYD')c.rate=1;else if(c.code!=='USD'&&+c.usdToUnit>0)c.rate=usd/(+c.usdToUnit)})}
 function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
 function fmt(n){return Number(n||0).toLocaleString('ar-LY',{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -176,7 +176,7 @@ function getLydRate(c){
   if(c.code==='LYD') return 1;
   if(c.code==='USD') return getUsdLyd();
   const usdPerUnit = getUsdToUnit(c);
-  return getUsdLyd() * usdPerUnit;
+  return getUsdLyd() / usdPerUnit;
 }
 function syncRates(){let usd=getUsdLyd();db.currencies.forEach(c=>{if(c.code==='LYD')c.rate=1;else if(c.code!=='USD'){let x=getUsdToUnit(c);if(x>0)c.rate=usd/x}})}
 function renderRates(){
