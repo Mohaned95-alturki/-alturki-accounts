@@ -34,7 +34,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script></head>
 <body>
-<header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 1.0</div></header>
+<header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 4.7</div></header>
 <nav id="nav">
 <button data-page="home" class="active">الرئيسية</button><button data-page="exchange">الصرافة</button>
 <button data-page="global">العالمية</button><button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
@@ -186,108 +186,81 @@ function renderRates(){
   renderGlobalRates();
 }
 
-const FX_API='https://biquote.io/api/latest';
+const FX_API='https://biquote.io/api/';
 const GLOBAL_UPDATE_KEY='alturki_global_fx_last_update';
 const GLOBAL_LIVE_STATUS_KEY='alturki_global_fx_live';
+const GLOBAL_BUILD='4.7';
 const LIVE_SYMBOLS=['USDTRY','USDTND','USDEGP','USDSAR','EURUSD'];
 const PAIR_TO_CODE={USDTRY:'TRY',USDTND:'TND',USDEGP:'EGP',USDSAR:'SAR',EURUSD:'EUR'};
 let globalLiveConnection=null;
+let globalRefreshTimer=null;
 
 function globalLastUpdate(){return +(localStorage.getItem(GLOBAL_UPDATE_KEY)||0)}
-function formatGlobalTime(ts){
-  if(!ts)return 'لم يتم التحديث بعد';
-  return 'آخر تحديث: '+new Date(ts).toLocaleString('ar-LY',{dateStyle:'medium',timeStyle:'medium'});
-}
-function setLiveStatus(ok,text){
-  const el=document.getElementById('globalLiveStatus');
-  if(el){el.textContent=(ok?'🟢 ':'🟠 ')+text;el.className='label';}
-  localStorage.setItem(GLOBAL_LIVE_STATUS_KEY,ok?'1':'0');
-}
-function renderGlobalLastUpdate(){
-  const el=document.getElementById('globalLastUpdate');
-  if(el)el.textContent=formatGlobalTime(globalLastUpdate());
-}
+function formatGlobalTime(ts){if(!ts)return 'لم يتم التحديث بعد';return 'آخر تحديث: '+new Date(ts).toLocaleString('ar-LY',{dateStyle:'medium',timeStyle:'medium'})}
+function setLiveStatus(ok,text){const el=document.getElementById('globalLiveStatus');if(el){el.textContent=(ok?'🟢 ':'🟠 ')+text;el.className='label';}localStorage.setItem(GLOBAL_LIVE_STATUS_KEY,ok?'1':'0')}
+function renderGlobalLastUpdate(){const el=document.getElementById('globalLastUpdate');if(el)el.textContent=formatGlobalTime(globalLastUpdate())}
 function applyLiveTick(tick){
-  if(!tick||!tick.symbol||!Number.isFinite(Number(tick.mid)))return;
-  const code=PAIR_TO_CODE[tick.symbol];
-  if(!code)return;
-  let unitsPerUsd=Number(tick.mid);
-  if(code==='EUR') unitsPerUsd=1/unitsPerUsd;
-  if(!(unitsPerUsd>0))return;
-  const c=db.currencies.find(x=>x.code===code);
-  if(!c)return;
-  c.usdToUnit=unitsPerUsd;
-  c.rate=getUsdLyd()/unitsPerUsd;
-  c.liveTimestamp=tick.timestamp||new Date().toISOString();
-  c.liveSource='BiQuote Live';
-  localStorage.setItem(KEY,JSON.stringify(db));
-  localStorage.setItem(GLOBAL_UPDATE_KEY,String(Date.now()));
-  renderRates(); renderGlobalRates(); renderSelects();
-  renderGlobalLastUpdate();
-}
-async function startGlobalLive(){
-  if(typeof signalR==='undefined'){setLiveStatus(false,'تعذر تشغيل البث المباشر');return;}
-  try{
-    globalLiveConnection=new signalR.HubConnectionBuilder()
-      .withUrl('https://biquote.io/hubs/tick')
-      .withAutomaticReconnect()
-      .build();
-    globalLiveConnection.on('ReceiveTick',applyLiveTick);
-    globalLiveConnection.onreconnecting(()=>setLiveStatus(false,'إعادة الاتصال بالسوق...'));
-    globalLiveConnection.onreconnected(()=>setLiveStatus(true,'LIVE — السوق متصل'));
-    globalLiveConnection.onclose(()=>setLiveStatus(false,'السوق غير متصل'));
-    await globalLiveConnection.start();
-    await globalLiveConnection.invoke('Subscribe',LIVE_SYMBOLS);
-    setLiveStatus(true,'LIVE — أسعار السوق مباشرة');
-  }catch(e){
-    setLiveStatus(false,'تعذر الاتصال المباشر — جارٍ استخدام آخر سعر محفوظ');
-    refreshGlobalRates(true);
-  }
+  if(!tick||!tick.symbol||!Number.isFinite(Number(tick.mid)))return false;
+  const symbol=String(tick.symbol).toUpperCase(), code=PAIR_TO_CODE[symbol]; if(!code)return false;
+  let unitsPerUsd=Number(tick.mid); if(code==='EUR') unitsPerUsd=1/unitsPerUsd; if(!(unitsPerUsd>0))return false;
+  const c=db.currencies.find(x=>x.code===code); if(!c)return false;
+  c.usdToUnit=unitsPerUsd; c.rate=getUsdLyd()/unitsPerUsd;
+  c.liveTimestamp=tick.timestamp||new Date().toISOString(); c.liveSource='BiQuote';
+  return true;
 }
 async function fetchOneGlobalTick(symbol){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),8000);
+  const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),7000);
   try{
-    const res=await fetch('https://biquote.io/api/'+encodeURIComponent(symbol)+'?_='+Date.now(),{cache:'no-store',mode:'cors',signal:controller.signal});
+    const res=await fetch(FX_API+encodeURIComponent(symbol)+'?allowStale=false&_='+Date.now(),{cache:'no-store',signal:controller.signal,headers:{'Accept':'application/json'}});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const tick=await res.json();
+    if(!tick || !Number.isFinite(Number(tick.mid)))throw new Error('invalid quote');
     return tick;
-  }finally{clearTimeout(timer);}
+  }finally{clearTimeout(timer)}
 }
 async function refreshGlobalRates(manual=false){
-  let ok=0;
-  try{
-    // Batch request: one browser request for all pairs. This is more reliable on iPhone/Safari than many parallel requests.
-    const qs=LIVE_SYMBOLS.map(s=>'symbols='+encodeURIComponent(s)).join('&');
-    const res=await fetch('https://biquote.io/api/latest?'+qs+'&_='+Date.now(),{cache:'no-store',mode:'cors',headers:{'Accept':'application/json'}});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    LIVE_SYMBOLS.forEach(symbol=>{
-      const tick=data && (data[symbol] || data[symbol.toUpperCase()] || data[symbol.toLowerCase()]);
-      if(tick && Number.isFinite(Number(tick.mid))){ applyLiveTick({...tick,symbol:symbol}); ok++; }
-    });
-    if(ok){
-      setLiveStatus(true,'LIVE — تحديث تلقائي للأسعار');
-      if(manual)toast('تم تحديث الأسعار العالمية');
-    } else {
-      throw new Error('No live quotes');
+  let ok=0, newest=0;
+  const results=await Promise.allSettled(LIVE_SYMBOLS.map(fetchOneGlobalTick));
+  results.forEach((r,i)=>{
+    if(r.status==='fulfilled'){
+      const t=r.value, ts=Date.parse(t.timestamp||'');
+      if(applyLiveTick({...t,symbol:LIVE_SYMBOLS[i]})){ok++; if(Number.isFinite(ts))newest=Math.max(newest,ts)}
     }
-  }catch(e){
-    // Fallback to individual endpoints if the batch endpoint is temporarily unavailable.
-    const results=await Promise.allSettled(LIVE_SYMBOLS.map(fetchOneGlobalTick));
-    results.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value&&Number.isFinite(Number(r.value.mid))){
-      applyLiveTick({...r.value,symbol:LIVE_SYMBOLS[i]}); ok++;
-    }});
-    if(ok){ setLiveStatus(true,'LIVE — تحديث تلقائي للأسعار'); if(manual)toast('تم تحديث الأسعار العالمية'); }
-    else if(manual){ setLiveStatus(false,'تعذر الوصول للسوق الآن'); toast('تعذر تحديث السوق الآن'); }
-  }finally{renderGlobalLastUpdate();}
+  });
+  if(ok){
+    localStorage.setItem(KEY,JSON.stringify(db));
+    localStorage.setItem(GLOBAL_UPDATE_KEY,String(newest||Date.now()));
+    setLiveStatus(true,'LIVE — تم جلب أسعار جديدة من السوق');
+    renderRates();renderGlobalRates();renderSelects();renderGlobalLastUpdate();
+    if(manual)toast('تم تحديث الأسعار العالمية الآن');
+  }else{
+    setLiveStatus(false,'لا يوجد اتصال بالسوق — لم يتم تغيير الأسعار');
+    renderGlobalLastUpdate();
+    if(manual)toast('تعذر جلب سعر جديد من السوق');
+  }
+}
+async function startGlobalLive(){
+  // SignalR is optional. REST below is the authoritative browser-safe fallback.
+  if(typeof signalR!=='undefined'){
+    try{
+      globalLiveConnection=new signalR.HubConnectionBuilder().withUrl('https://biquote.io/hubs/tick').withAutomaticReconnect().build();
+      globalLiveConnection.on('ReceiveTick',tick=>{if(applyLiveTick(tick)){localStorage.setItem(KEY,JSON.stringify(db));localStorage.setItem(GLOBAL_UPDATE_KEY,String(Date.now()));setLiveStatus(true,'LIVE — بث مباشر');renderRates();renderGlobalRates();renderSelects();renderGlobalLastUpdate();}});
+      globalLiveConnection.onreconnecting(()=>setLiveStatus(false,'إعادة الاتصال بالسوق...'));
+      globalLiveConnection.onreconnected(()=>{setLiveStatus(true,'LIVE — بث مباشر');refreshGlobalRates(false)});
+      globalLiveConnection.onclose(()=>setLiveStatus(false,'البث غير متصل — جاري فحص REST'));
+      await globalLiveConnection.start();
+      await globalLiveConnection.invoke('Subscribe',LIVE_SYMBOLS);
+    }catch(e){setLiveStatus(false,'البث المباشر غير متاح — جاري استخدام REST')}
+  }
+  await refreshGlobalRates(false);
 }
 function autoRefreshGlobalRates(){
   renderGlobalLastUpdate();
   startGlobalLive();
-  refreshGlobalRates(false);
-  setInterval(()=>refreshGlobalRates(false),10000);
+  if(globalRefreshTimer)clearInterval(globalRefreshTimer);
+  globalRefreshTimer=setInterval(()=>refreshGlobalRates(false),15000);
 }
+
 function renderGlobalRates(){
   let usd=getUsdLyd();
   let box=document.getElementById('globalRatesTable');
@@ -346,7 +319,20 @@ function renderCurrencySettings(){currencyList.innerHTML=db.currencies.map(c=>`<
 function renderAll(){renderSelects();renderHome();renderRates();renderTransactions();renderCustomers();renderAccounts();renderReports();renderCurrencySettings()}
 renderAll();
 </script>
-<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-autoRefreshGlobalRates();
+<script>
+(async()=>{
+  try{
+    const v=localStorage.getItem('alturki_build_version');
+    if(v!=='4.7'){
+      localStorage.setItem('alturki_build_version','4.7');
+      if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();}
+      if('caches' in window){const ks=await caches.keys();for(const k of ks)await caches.delete(k);}
+      setTimeout(()=>location.reload(),150);
+      return;
+    }
+  }catch(e){}
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=4.7').catch(()=>{});
+  autoRefreshGlobalRates();
+})();
 </script>
 </body></html>
