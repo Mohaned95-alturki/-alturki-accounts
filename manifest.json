@@ -1,11 +1,1 @@
-{
-  "name":"التركي للحسابات",
-  "short_name":"التركي للحسابات",
-  "start_url":"./index.html?v=4.6",
-  "display":"standalone",
-  "background_color":"#f3f7f5",
-  "theme_color":"#0b8f63",
-  "dir":"rtl",
-  "lang":"ar",
-  "icons":[{"src":"./logo.jpg","sizes":"192x192","type":"image/jpeg"},{"src":"./logo.jpg","sizes":"512x512","type":"image/jpeg"}]
-}
+{"name":"التركي للحسابات","short_name":"التركي للحسابات","start_url":"./","display":"standalone","background_color":"#f4f8f6","theme_color":"#0a8f68","lang":"ar","dir":"rtl","icons":[{"src":"logo.jpg","sizes":"192x192","type":"image/jpeg"},{"src":"logo.jpg","sizes":"512x512","type":"image/jpeg"}]}

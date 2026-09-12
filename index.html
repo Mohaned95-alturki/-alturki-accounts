@@ -31,13 +31,21 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 #printInvoice{display:none}
 @media print{body{background:#fff}body>*{display:none!important}#printInvoice{display:block!important;position:static!important;width:100%!important;padding:0!important;margin:0!important}.invoice-page{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;direction:rtl;color:#111;padding:24px;max-width:760px;margin:0 auto}.invoice-head{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:2px solid #087f55;padding-bottom:14px;margin-bottom:18px}.invoice-logo{width:100px;height:100px;object-fit:contain;border-radius:10px}.invoice-title{font-size:22px;font-weight:800;color:#087f55}.invoice-sub{font-size:12px;color:#666;margin-top:4px}.invoice-meta{font-size:12px;line-height:1.9}.invoice-total{font-size:22px;font-weight:800;color:#087f55;text-align:center;border:2px solid #087f55;border-radius:12px;padding:12px;margin:18px 0}.invoice-table{width:100%;border-collapse:collapse}.invoice-table th,.invoice-table td{border:1px solid #ccc;padding:10px;text-align:right}.invoice-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:55px}.invoice-sign div{border-top:1px solid #555;padding-top:8px;text-align:center;font-size:12px}.invoice-foot{margin-top:28px;border-top:1px solid #ddd;padding-top:10px;font-size:11px;color:#666;line-height:1.8}.no-print{display:none!important}}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.sheet{max-width:650px;margin:auto;border-radius:20px;margin-bottom:20px}.modal{align-items:center}}
+
+.global-simple-rates{width:100%;border-collapse:collapse;table-layout:fixed}
+.global-simple-rates th,.global-simple-rates td{padding:14px 10px;border-bottom:1px solid #dfe8e4;text-align:right;vertical-align:middle}
+.global-simple-rates th{background:#f5faf8;font-weight:800}
+.global-simple-rates th:first-child,.global-simple-rates td:first-child{width:18%}
+.global-simple-rates th:last-child,.global-simple-rates td:last-child{width:30%;text-align:left;white-space:nowrap}
+.global-simple-rates td:last-child{font-size:1.05em}
+@media(max-width:600px){.global-simple-rates th,.global-simple-rates td{padding:12px 7px;font-size:.96rem}.global-simple-rates th:last-child,.global-simple-rates td:last-child{width:34%}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script></head>
 <body>
-<header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 4.7</div></header>
+<header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 4.9</div></header>
 <nav id="nav">
 <button data-page="home" class="active">الرئيسية</button><button data-page="exchange">الصرافة</button>
-<button data-page="global">العالمية</button><button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
+<button data-page="global">العالمية</button><button data-page="chequeTransfers">حوالات صك</button><button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
 <button data-page="accounts">الحسابات</button><button data-page="reports">التقارير</button>
 <button data-page="settings">الإعدادات</button>
 </nav>
@@ -90,6 +98,28 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
     <span id="globalLastUpdate" class="label"></span>
   </div>
   <div class="actions" style="margin:10px 0;align-items:center"><span id="globalLiveStatus" class="label">🟠 جاري الاتصال بالسوق...</span><button class="btn" onclick="refreshGlobalRates(true)">🔄 تحديث الآن</button></div><div id="globalRatesTable"></div>
+</div>
+</section>
+
+<section id="chequeTransfers" class="page">
+<h2>حوالات مصر وتونس بالصك</h2>
+<div class="card">
+  <div class="notice">أدخل سعر الدولار كاش، سعر الدولار صك، وسعر حوالة الكاش. المنظومة تحسب لك سعر الحوالة بالصك تلقائيًا حسب فرق سعر الدولار.</div>
+  <div class="grid">
+    <div><label>💵 سعر الدولار كاش</label><input id="ctUsdCash" type="number" step="0.000001" placeholder="مثلاً 9.38" oninput="calcChequeTransfers()"></div>
+    <div><label>🏦 سعر الدولار صك</label><input id="ctUsdCheque" type="number" step="0.000001" placeholder="مثلاً 9.65" oninput="calcChequeTransfers()"></div>
+    <div><label>💰 المبلغ بالدينار الليبي</label><input id="ctLydAmount" type="number" step="0.01" value="1000" oninput="calcChequeTransfers()"></div>
+    <div><label>🇪🇬 سعر حوالة مصر كاش</label><input id="ctEgyptCash" type="number" step="0.000001" placeholder="مثلاً 5.45" oninput="calcChequeTransfers()"></div>
+    <div><label>🇹🇳 سعر حوالة تونس كاش</label><input id="ctTunisiaCash" type="number" step="0.000001" placeholder="أدخل سعر تونس الكاش" oninput="calcChequeTransfers()"></div>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card" style="background:#f6fbf8"><div class="label">🇪🇬 سعر حوالة مصر بالصك</div><div class="kpi green" id="ctEgyptCheque">—</div></div>
+    <div class="card" style="background:#f6fbf8"><div class="label">🇹🇳 سعر حوالة تونس بالصك</div><div class="kpi green" id="ctTunisiaCheque">—</div></div>
+  </div>
+  <div class="card" style="margin-top:12px;background:#fffdf3">
+    <div class="label">طريقة الحساب</div>
+    <div id="ctFormula" style="font-size:1.05rem;line-height:1.9">أدخل الأسعار حتى تظهر الحسبة.</div>
+  </div>
 </div>
 </section>
 
@@ -266,14 +296,10 @@ function renderGlobalRates(){
   let box=document.getElementById('globalRatesTable');
   if(!box) return;
   renderGlobalLastUpdate();
-  box.innerHTML='<table><tr><th>الرمز</th><th>العملة</th><th>1 USD =</th><th>السعر مقابل LYD</th></tr>'+
+  box.innerHTML='<table class="global-simple-rates"><tr><th>الرمز</th><th>العملة</th><th>السعر مقابل LYD</th></tr>'+
     db.currencies.map(c=>{
-      let units=c.code==='LYD'?usd:c.code==='USD'?1:getUsdToUnit(c);
       let lyd=getLydRate(c);
-      let editable=c.code!=='LYD'&&c.code!=='USD';
-      return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td>'+
-        (editable?'<input style="padding:7px;width:100%" type="number" min="0.000001" step=".000001" value="'+units+'" onchange="updateRate(\''+c.code+'\',this.value)">':(c.code==='USD'?'1':'—'))+
-        '</td><td><b>'+fmt(lyd)+'</b> د.ل</td></tr>';
+      return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td><b>'+fmt(lyd)+'</b> د.ل</td></tr>';
     }).join('')+'</table>';
 }
 function setUsdLyd(v){v=+v;if(!v||v<=0)return toast('أدخل سعرًا صحيحًا للدولار');let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;usd.rate=v;syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderGlobalRates();renderSelects();let c=db.currencies.find(x=>x.code===document.getElementById('exCurrency').value);if(c){document.getElementById('exRate').value=getLydRate(c);calcEx()}toast('تم تحديث سعر الدولار وأسعار العملات تلقائيًا')}
@@ -314,6 +340,28 @@ function showInvoice(txId){
   window.print();
 }
 function printInvoice(txId){showInvoice(txId)}
+function calcChequeTransfers(){
+  const usdCash=+(document.getElementById('ctUsdCash')?.value||0);
+  const usdCheque=+(document.getElementById('ctUsdCheque')?.value||0);
+  const amount=+(document.getElementById('ctLydAmount')?.value||1000);
+  const egCash=+(document.getElementById('ctEgyptCash')?.value||0);
+  const tnCash=+(document.getElementById('ctTunisiaCash')?.value||0);
+  const egOut=document.getElementById('ctEgyptCheque'), tnOut=document.getElementById('ctTunisiaCheque'), formula=document.getElementById('ctFormula');
+  if(!egOut||!tnOut)return;
+  if(!(usdCash>0&&usdCheque>0&&amount>0)){egOut.textContent='—';tnOut.textContent='—';formula.textContent='أدخل سعر الدولار كاش والصك والمبلغ.';return;}
+  const factor=usdCash/usdCheque;
+  const eg=egCash>0?egCash*factor:null;
+  const tn=tnCash>0?tnCash*factor:null;
+  egOut.textContent=eg==null?'—':fmt(eg);
+  tnOut.textContent=tn==null?'—':fmt(tn);
+  const chequeUsd=amount/usdCheque;
+  const cashUsd=chequeUsd*usdCash;
+  const egTotal=egCash>0?cashUsd*egCash:null;
+  const tnTotal=tnCash>0?cashUsd*tnCash:null;
+  formula.innerHTML=`<b>${fmt(amount)} د.ل ÷ ${fmt(usdCheque)} = ${fmt(chequeUsd)}$ صك</b><br>× ${fmt(usdCash)} = ${fmt(cashUsd)}$ كاش`+
+    (eg!=null?`<br>🇪🇬 مصر: × ${fmt(egCash)} = ${fmt(egTotal)} ج.م → <b>سعر الصك ${fmt(eg)}</b>`:'')+
+    (tn!=null?`<br>🇹🇳 تونس: × ${fmt(tnCash)} = ${fmt(tnTotal)} د.ت → <b>سعر الصك ${fmt(tn)}</b>`:'');
+}
 function renderHome(){kCash.textContent=money(db.accounts.find(x=>x.name==='الكاش')?.balance||0);kAccounts.textContent=money(db.accounts.reduce((s,x)=>s+x.balance,0));kDebt.textContent=money(db.customers.reduce((s,x)=>s+Math.max(0,x.balance),0));kProfit.textContent=money(db.transactions.reduce((s,x)=>s+(x.profit||0),0));let a=db.transactions.slice().reverse().slice(0,6);homeRecent.innerHTML=a.length?a.map(t=>`<div class="item"><div class="row"><span>${kindName(t)}</span><b>${money(t.lyd)}</b></div><div class="label">${t.date} ${t.note?' — '+esc(t.note):''}</div></div>`).join(''):'<div class="empty">لا توجد عمليات بعد</div>'}
 function renderCurrencySettings(){currencyList.innerHTML=db.currencies.map(c=>`<div class="item"><div class="row"><b>${c.code} — ${esc(c.name)}</b><span>${c.rate}</span></div></div>`).join('')}
 function renderAll(){renderSelects();renderHome();renderRates();renderTransactions();renderCustomers();renderAccounts();renderReports();renderCurrencySettings()}
@@ -323,15 +371,15 @@ renderAll();
 (async()=>{
   try{
     const v=localStorage.getItem('alturki_build_version');
-    if(v!=='4.7'){
-      localStorage.setItem('alturki_build_version','4.7');
+    if(v!=='4.9'){
+      localStorage.setItem('alturki_build_version','4.9');
       if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();}
       if('caches' in window){const ks=await caches.keys();for(const k of ks)await caches.delete(k);}
       setTimeout(()=>location.reload(),150);
       return;
     }
   }catch(e){}
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=4.7').catch(()=>{});
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=4.9').catch(()=>{});
   autoRefreshGlobalRates();
 })();
 </script>
