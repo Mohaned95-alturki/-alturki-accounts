@@ -58,7 +58,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script></head>
 <body>
-<header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 1.0</div></header>
+<header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — النسخة الشاملة 6.0</div></header>
 <nav id="nav">
 <button data-page="home" class="active">الرئيسية</button><button data-page="exchange">الصرافة</button>
 <button data-page="global">العالمية</button><button data-page="chequeTransfers">حوالات مصر وتونس بالصك</button><button data-page="crossCalc">حسبة تركيا ↔ ليبيا</button><button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
@@ -79,6 +79,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 <button class="btn secondary" onclick="openTx('income')">💰 إيراد</button>
 <button class="btn secondary" onclick="openTx('expense')">💸 مصروف</button>
 <button class="btn secondary" onclick="openCustomer()">👤 زبون</button>
+<button class="btn secondary" onclick="document.querySelector('[data-page=\"silver\"]').click()">🥈 حسبة الفضة</button>
 </div></div>
 <div class="card"><h3>آخر العمليات</h3><div id="homeRecent"></div></div>
 </section>
@@ -98,6 +99,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 <label>ملاحظة</label><textarea id="exNote" placeholder="مثلاً: سعر الكاش..."></textarea>
 <div class="actions"><button class="btn" onclick="saveExchange()">حفظ العملية</button><button class="btn secondary" onclick="clearEx()">مسح</button></div>
 </div>
+<div class="card"><h3>حسبة سريعة لجميع العملات</h3><div class="notice" style="margin-bottom:10px">أدخل سعر الدولار مقابل الدينار الليبي، وستظهر لك مباشرةً أسعار جميع العملات الموجودة في المنظومة مقابل الدينار الليبي، ومنها 🇪🇬 الجنيه المصري و🇸🇦 الريال السعودي و🇹🇳 الدينار التونسي و🇹🇷 الليرة التركية و🇪🇺 اليورو.</div><div style="margin-bottom:12px"><label>سعر الدولار USD / LYD</label><input id="quickUsdLyd" type="number" step="0.000001" inputmode="decimal" oninput="calcQuickRates()"></div><div id="quickRatesAll" class="grid3"></div><div class="label" id="quickRatesSource" style="margin-top:8px"></div></div>
 <div class="card"><h3>أسعار العملات</h3><div class="notice" style="margin-bottom:10px">الدولار هو العملة الأساسية: غيّر سعر USD مقابل الدينار الليبي، وسيُعاد حساب أسعار كل العملات تلقائيًا. خانة «1 USD =» تعني كم وحدة من العملة تساوي دولارًا واحدًا. </div><div id="ratesTable"></div></div>
 </section>
 
@@ -276,16 +278,17 @@ function currencyReport(ex){let codes=[...new Set(ex.map(x=>x.currency))];return
 function getUsdLyd(){return +(db.currencies.find(x=>x.code==='USD')?.rate||0)}
 function getUsdToUnit(c){if(c.code==='USD')return 1;if(c.code==='LYD')return getUsdLyd();if(Number.isFinite(+c.usdToUnit)&&+c.usdToUnit>0)return +c.usdToUnit;let oldUsd=getUsdLyd()||1;return c.rate>0?oldUsd/c.rate:0}
 function getLydRate(c){
+  if(!c) return 0;
   if(c.code==='LYD') return 1;
   if(c.code==='USD') return getUsdLyd();
-  const usdPerUnit = getUsdPerUnit(c);
-  return getUsdLyd() * usdPerUnit;
+  const unitsPerUsd=getUsdToUnit(c);
+  return unitsPerUsd>0 ? getUsdLyd()/unitsPerUsd : 0;
 }
 function syncRates(){let usd=getUsdLyd();db.currencies.forEach(c=>{if(c.code==='LYD')c.rate=1;else if(c.code!=='USD'){let x=getUsdToUnit(c);if(x>0)c.rate=usd/x}})}
 function renderRates(){
   syncRates();
   let usd=getUsdLyd();
-  ratesTable.innerHTML='<div class="card" style="margin-bottom:10px;background:#f6fbf8"><label>سعر الدولار مقابل الدينار الليبي (1 USD)</label><input id="usdLydInput" type="number" min="0.000001" step=".000001" value="'+usd+'" onchange="setUsdLyd(this.value)"><div class="label" style="margin-top:6px">غيّر هذا الرقم لتحديث أسعار LYD تلقائيًا.</div><button class="btn secondary small" style="margin-top:8px" onclick="repairRates()">إعادة ضبط علاقات العملات</button></div><table><tr><th>العملة</th><th>الاسم</th><th>1 USD =</th><th>السعر مقابل LYD</th><th></th></tr>'+db.currencies.map(c=>{let u=c.code==='LYD'?usd:c.code==='USD'?1:getUsdToUnit(c),lyd=getLydRate(c);let editable=c.code!=='LYD'&&c.code!=='USD';return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td>'+ (editable?'<input style="padding:7px" type="number" min="0.000001" step=".000001" value="'+u+'" onchange="updateRate(\''+c.code+'\',this.value)">':(c.code==='USD'?'1':'—')) +'</td><td><b>'+fmt(lyd)+'</b></td><td>'+ (c.code==='LYD'||c.code==='USD'?'':'<button class="btn danger small" onclick="deleteCurrency(\''+c.code+'\')">حذف</button>')+'</td></tr>'}).join('')+'</table>';
+  ratesTable.innerHTML='<div class="card" style="margin-bottom:10px;background:#f6fbf8"><label>سعر الدولار مقابل الدينار الليبي (1 USD)</label><input id="usdLydInput" type="number" min="0.000001" step=".000001" value="'+usd+'" onchange="setUsdLyd(this.value)"><div class="label" style="margin-top:6px">غيّر هذا الرقم لتحديث أسعار LYD تلقائيًا.</div><button class="btn secondary small" style="margin-top:8px" onclick="repairRates()">إعادة ضبط علاقات العملات</button></div><table><tr><th>العملة</th><th>الاسم</th><th>السعر مقابل LYD</th><th></th></tr>'+db.currencies.map(c=>{let u=c.code==='LYD'?usd:c.code==='USD'?1:getUsdToUnit(c),lyd=getLydRate(c);let editable=c.code!=='LYD'&&c.code!=='USD';return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td><b>'+fmt(lyd)+'</b> د.ل</td><td>'+ (c.code==='LYD'||c.code==='USD'?'':'<button class="btn danger small" onclick="deleteCurrency(\''+c.code+'\')">حذف</button>')+'</td></tr>'}).join('')+'</table>';
   renderGlobalRates();
 }
 
@@ -375,17 +378,29 @@ function renderGlobalRates(){
   let box=document.getElementById('globalRatesTable');
   if(!box) return;
   renderGlobalLastUpdate();
-  box.innerHTML='<table><tr><th>الرمز</th><th>العملة</th><th>1 USD =</th><th>السعر مقابل LYD</th></tr>'+
+  box.innerHTML='<table><tr><th>الرمز</th><th>العملة</th><th>السعر مقابل LYD</th></tr>'+
     db.currencies.map(c=>{
       let units=c.code==='LYD'?usd:c.code==='USD'?1:getUsdToUnit(c);
       let lyd=getLydRate(c);
       let editable=c.code!=='LYD'&&c.code!=='USD';
-      return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td>'+
-        (editable?'<input style="padding:7px;width:100%" type="number" min="0.000001" step=".000001" value="'+units+'" onchange="updateRate(\''+c.code+'\',this.value)">':(c.code==='USD'?'1':'—'))+
-        '</td><td><b>'+fmt(lyd)+'</b> د.ل</td></tr>';
+      return '<tr><td><b>'+c.code+'</b></td><td>'+esc(c.name)+'</td><td><b>'+fmt(lyd)+'</b> د.ل</td></tr>';
     }).join('')+'</table>';
 }
-function setUsdLyd(v){v=+v;if(!v||v<=0)return toast('أدخل سعرًا صحيحًا للدولار');let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;usd.rate=v;syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderGlobalRates();renderSelects();let c=db.currencies.find(x=>x.code===document.getElementById('exCurrency').value);if(c){document.getElementById('exRate').value=getLydRate(c);calcEx()}toast('تم تحديث سعر الدولار وأسعار العملات تلقائيًا')}
+function calcQuickRates(){
+  const usd=Number(document.getElementById('quickUsdLyd')?.value||getUsdLyd());
+  const box=document.getElementById('quickRatesAll');
+  if(!box)return;
+  const list=(db.currencies||[]).filter(c=>c.code!=='LYD');
+  box.innerHTML=list.map(c=>{
+    const units=c.code==='USD'?1:Number(c.usdToUnit||getUsdToUnit(c));
+    const lyd=usd>0&&units>0?usd/units:0;
+    const flag={USD:'🇺🇸',EGP:'🇪🇬',SAR:'🇸🇦',TND:'🇹🇳',TRY:'🇹🇷',EUR:'🇪🇺',GBP:'🇬🇧',AED:'🇦🇪',QAR:'🇶🇦',KWD:'🇰🇼',JOD:'🇯🇴',MAD:'🇲🇦',DZD:'🇩🇿' }[c.code]||'💱';
+    return `<div class="card" style="margin:0"><label>${flag} ${esc(c.name)} (${esc(c.code)}) مقابل الدينار الليبي</label><input type="text" value="${lyd?fmt(lyd)+' د.ل':'—'}" readonly></div>`;
+  }).join('');
+  const src=document.getElementById('quickRatesSource');
+  if(src)src.textContent='الحسبة: سعر الدولار بالدينار الليبي ÷ عدد وحدات العملة مقابل 1 دولار. غيّر سعر الدولار لتتحدث كل العملات فورًا.';
+}
+function setUsdLyd(v){v=+v;if(!v||v<=0)return toast('أدخل سعرًا صحيحًا للدولار');let usd=db.currencies.find(x=>x.code==='USD');if(!usd)return;usd.rate=v;syncRates();localStorage.setItem(KEY,JSON.stringify(db));renderRates();renderGlobalRates();renderSelects();let q=document.getElementById('quickUsdLyd');if(q)q.value=v;calcQuickRates();let c=db.currencies.find(x=>x.code===document.getElementById('exCurrency').value);if(c){document.getElementById('exRate').value=getLydRate(c);calcEx()}toast('تم تحديث سعر الدولار وأسعار العملات تلقائيًا')}
 function repairRates(){
   let usd=getUsdLyd();
   const defaults={TRY:38.5714285714,TND:3.1764705882,SAR:3.75,EGP:49.0909090909,EUR:0.8571428571};
@@ -456,7 +471,7 @@ function renderCurrencySettings(){
   }).join('');
 }
 function renderAll(){renderSelects();renderHome();renderRates();renderTransactions();renderCustomers();renderAccounts();renderReports();renderCurrencySettings()}
-renderAll();
+renderAll();setTimeout(()=>{const q=document.getElementById('quickUsdLyd');if(q){q.value=getUsdLyd();calcQuickRates()}},0);
 calcCrossRate();
 </script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
