@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="التركي للحسابات">
 <meta name="theme-color" content="#0b7a53">
 <link rel="manifest" href="manifest.json">
 <title>التركي للحسابات</title>
@@ -28,15 +31,39 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 6px;b
 hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#fff9df;border:1px solid #f2dfa0;padding:11px;border-radius:12px;font-size:12px;color:#6b5715}
 .modal{position:fixed;inset:0;background:#0007;z-index:20;display:none;align-items:flex-end}.modal.show{display:flex}.sheet{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px}.toast{position:fixed;bottom:18px;left:18px;right:18px;background:#18211e;color:#fff;padding:12px;border-radius:12px;text-align:center;z-index:30;display:none}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.sheet{max-width:650px;margin:auto;border-radius:20px;margin-bottom:20px}.modal{align-items:center}}
+
+/* Invoice */
+#printInvoice{display:none}
+.invoice-sheet{background:#fff;max-width:760px;margin:20px auto;padding:28px;border:1px solid #ddd;border-radius:16px;color:#111}
+.invoice-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;border-bottom:2px solid #198754;padding-bottom:18px}
+.invoice-logo{width:90px;height:90px;object-fit:contain}
+.invoice-company h2{margin:0 0 6px;color:#198754}
+.invoice-company p,.invoice-meta p{margin:3px 0}
+.invoice-title{text-align:center;margin:20px 0;font-size:22px}
+.invoice-table{width:100%;border-collapse:collapse;margin-top:15px}
+.invoice-table th,.invoice-table td{border:1px solid #ddd;padding:10px;text-align:right}
+.invoice-table th{background:#f3f8f5}
+.invoice-total{font-size:20px;font-weight:700;text-align:left;margin-top:18px}
+.invoice-sign{display:flex;justify-content:space-between;margin-top:60px;gap:30px}
+.invoice-sign div{width:45%;border-top:1px solid #777;text-align:center;padding-top:8px}
+.invoice-actions{text-align:center;margin:15px 0}
+.invoice-actions button{margin:4px}
+@media print{
+  body *{visibility:hidden!important}
+  #printInvoice,#printInvoice *{visibility:visible!important}
+  #printInvoice{display:block!important;position:absolute;left:0;top:0;width:100%;background:#fff}
+  .invoice-sheet{border:0;box-shadow:none;max-width:none;margin:0}
+  .invoice-actions{display:none!important}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script></head>
 <body>
 <header><h1>التركي للحسابات</h1><div class="sub">إدارة الصرافة والحسابات — نسخة 1.0</div></header>
 <nav id="nav">
 <button data-page="home" class="active">الرئيسية</button><button data-page="exchange">الصرافة</button>
-<button data-page="global">العالمية</button><button data-page="crossCalc">حسبة تركيا ↔ ليبيا</button><button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
+<button data-page="global">العالمية</button><button data-page="chequeTransfers">حوالات مصر وتونس بالصك</button><button data-page="crossCalc">حسبة تركيا ↔ ليبيا</button><button data-page="transactions">العمليات</button><button data-page="customers">الزبائن</button>
 <button data-page="accounts">الحسابات</button><button data-page="reports">التقارير</button>
-<button data-page="settings">الإعدادات</button>
+<button data-page="settings">🥈 تداول الفضة</button> ⚙️ الإعدادات</button>
 </nav>
 <main>
 <section id="home" class="page active">
@@ -116,9 +143,67 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 
 <section id="customers" class="page"><div class="row"><h2>الزبائن والديون</h2><button class="btn small" onclick="openCustomer()">+ زبون</button></div><div class="card"><input id="customerSearch" placeholder="ابحث باسم الزبون..." oninput="renderCustomers()"></div><div id="customerList"></div></section>
 
+<section id="chequeTransfers" class="page">
+<h2>🏦 حوالات مصر وتونس بالصك</h2>
+<div class="card">
+  <div class="notice"><b>الحسبة:</b> سعر الحوالة بالصك = سعر الحوالة كاش × سعر الدولار كاش ÷ سعر الدولار صك.</div>
+  <div class="grid">
+    <div><label>💵 سعر الدولار كاش</label><input id="ctUsdCash" type="number" step="0.000001" placeholder="مثلاً 9.38" oninput="calcChequeTransfers()"></div>
+    <div><label>🏦 سعر الدولار صك</label><input id="ctUsdCheque" type="number" step="0.000001" placeholder="مثلاً 9.65" oninput="calcChequeTransfers()"></div>
+    <div><label>💰 المبلغ بالدينار الليبي</label><input id="ctLydAmount" type="number" step="0.01" value="1000" oninput="calcChequeTransfers()"></div>
+    <div><label>🇪🇬 سعر حوالة مصر كاش</label><input id="ctEgyptCash" type="number" step="0.000001" placeholder="مثلاً 5.45" oninput="calcChequeTransfers()"></div>
+    <div><label>🇹🇳 سعر حوالة تونس كاش</label><input id="ctTunisiaCash" type="number" step="0.000001" placeholder="مثلاً 1.70" oninput="calcChequeTransfers()"></div>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card" style="background:#f6fbf8"><div class="label">🇪🇬 سعر حوالة مصر بالصك</div><div class="kpi green" id="ctEgyptCheque">—</div></div>
+    <div class="card" style="background:#f6fbf8"><div class="label">🇹🇳 سعر حوالة تونس بالصك</div><div class="kpi green" id="ctTunisiaCheque">—</div></div>
+  </div>
+  <div class="card" style="margin-top:12px;background:#fffdf3"><div class="label">🧮 تفاصيل الحسبة</div><div id="ctFormula" style="font-size:1.05rem;line-height:1.9">أدخل الأسعار حتى تظهر الحسبة.</div></div>
+</div>
+</section>
+
 <section id="accounts" class="page"><div class="row"><h2>الحسابات والكاش</h2><button class="btn small" onclick="openAccount()">+ حساب</button></div><div id="accountList"></div><div class="card"><h3>تحويل بين الحسابات</h3><div class="grid"><div><label>من</label><select id="trFrom"></select></div><div><label>إلى</label><select id="trTo"></select></div><div><label>المبلغ (د.ل)</label><input id="trAmount" type="number" step=".01"></div><div><label>ملاحظة</label><input id="trNote"></div></div><button class="btn" style="margin-top:10px" onclick="transfer()">تنفيذ التحويل</button></div></section>
 
 <section id="reports" class="page"><h2>التقارير</h2><div class="card"><div class="grid"><div><label>من</label><input id="rFrom" type="date"></div><div><label>إلى</label><input id="rTo" type="date"></div></div><button class="btn" style="margin-top:10px" onclick="renderReports()">تحديث التقرير</button></div><div id="reportBody"></div></section>
+
+
+<section id="silver" class="page">
+  <h2>🥈 تداول الفضة — رأس المال بالدولار</h2>
+
+  <div class="card">
+    <div class="notice">احسب قيمة استثمارك في الفضة بالدولار، حتى لو كان الشراء والبيع بالدينار الليبي.</div>
+
+    <div class="grid">
+      <label>💵 رأس المال بالدولار
+        <input id="silverCapitalUSD" type="number" step="0.01" placeholder="مثال: 10000" oninput="calcSilver()">
+      </label>
+      <label>💱 سعر الدولار وقت الشراء
+        <input id="silverBuyUsdRate" type="number" step="0.0001" placeholder="مثال: 9.56" oninput="calcSilver()">
+      </label>
+      <label>🥈 سعر كيلو الفضة وقت الشراء (د.ل)
+        <input id="silverBuyKgLYD" type="number" step="0.01" placeholder="مثال: 17500" oninput="calcSilver()">
+      </label>
+      <label>🥈 سعر كيلو الفضة وقت البيع (د.ل)
+        <input id="silverSellKgLYD" type="number" step="0.01" placeholder="مثال: 18500" oninput="calcSilver()">
+      </label>
+      <label>💵 سعر الدولار عند بيع الفضة وشراء الدولار
+        <input id="silverSellUsdRate" type="number" step="0.0001" placeholder="مثال: 10.00" oninput="calcSilver()">
+      </label>
+    </div>
+
+    <div class="result-grid">
+      <div class="result-box"><span>المبلغ المحول للدينار</span><strong id="silverCapitalLYD">—</strong></div>
+      <div class="result-box"><span>كمية الفضة المشتراة (كجم)</span><strong id="silverKg">—</strong></div>
+      <div class="result-box"><span>تكلفة الكيلو بالدولار</span><strong id="silverCostPerKgUSD">—</strong></div>
+      <div class="result-box"><span>قيمة الفضة عند البيع (د.ل)</span><strong id="silverSellValueLYD">—</strong></div>
+      <div class="result-box"><span>الدولار المسترجع</span><strong id="silverRecoveredUSD">—</strong></div>
+      <div class="result-box"><span>الربح / الخسارة بالدولار</span><strong id="silverPnLUSD">—</strong></div>
+      <div class="result-box"><span>نسبة الربح / الخسارة</span><strong id="silverPnLPct">—</strong></div>
+    </div>
+
+    <div id="silverStatus" class="notice">أدخل البيانات لحساب النتيجة.</div>
+  </div>
+</section>
 
 <section id="settings" class="page"><h2>الإعدادات والنسخ الاحتياطي</h2>
 <div class="card"><h3>العملات</h3><div id="currencyList"></div><div class="actions"><button class="btn" onclick="openCurrency()">+ إضافة عملة</button></div></div>
@@ -158,7 +243,7 @@ function saveExchange(){
  let code=document.getElementById('exCurrency').value,a=+document.getElementById('exAmount').value,r=+document.getElementById('exRate').value,acc=+document.getElementById('exAccount').value;
  if(!code||!a||!r||!acc)return toast('أكمل العملة والمبلغ والسعر والحساب');
  let type=document.getElementById('exType').value, lyd=a*r, profit=+document.getElementById('exProfit').value||0,cust=+document.getElementById('exCustomer').value||null;
- db.transactions.push({id:id(),date:today(),kind:'exchange',type,amount:a,currency:code,rate:r,lyd,profit,accountId:acc,customerId:cust,note:document.getElementById('exNote').value});
+ db.transactions.push({id:id(),date:today(),kind:'exchange',type,amount:a,currency:code,rate:r,lyd,profit,accountId:acc,customerId:cust,note:document.getElementById('exNote').value,invoiceNo:'TRK-'+Date.now().toString().slice(-8)});
  let ac=db.accounts.find(x=>x.id===acc); ac.balance += type==='buy'?lyd:-lyd; if(profit) ac.balance+=profit;
  if(cust){let c=db.customers.find(x=>x.id===cust);c.balance += type==='sell'?lyd:-lyd}
  save();clearEx();toast('تم حفظ العملية بنجاح');
@@ -173,7 +258,7 @@ function saveGeneric(kind){let a=+gAmount.value,ac=+gAccount.value;if(!a||!ac)re
 function renderTransactions(){
  let f=tFrom.value,to=tTo.value,arr=db.transactions.filter(t=>(!f||t.date>=f)&&(!to||t.date<=to)).slice().reverse();
  if(!arr.length){txTable.innerHTML='<div class="empty">لا توجد عمليات</div>';return}
- txTable.innerHTML='<table><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>التفاصيل</th><th></th></tr>'+arr.map(t=>`<tr><td>${t.date}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td><td>${t.currency?`${t.amount} ${t.currency} × ${t.rate}`:''}${t.note?'<br>'+esc(t.note):''}</td><td><button class="btn danger small" onclick="deleteTx(${t.id})">حذف</button></td></tr>`).join('')+'</table>'}
+ txTable.innerHTML='<table><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>التفاصيل</th><th></th></tr>'+arr.map(t=>`<tr><td>${t.date}</td><td>${kindName(t)}</td><td>${money(t.lyd)}</td><td>${t.currency?`${t.amount} ${t.currency} × ${t.rate}`:''}${t.note?'<br>'+esc(t.note):''}</td><td><div class="actions"><button class="btn secondary small" onclick="showInvoice(${t.id})">🧾 فاتورة</button><button class="btn danger small" onclick="deleteTx(${t.id})">حذف</button></div></td></tr>`).join('')+'</table>'}
 function kindName(t){return t.kind==='exchange'?(t.type==='buy'?'شراء عملة':'بيع عملة'):t.kind==='income'?'إيراد':'مصروف'}
 function deleteTx(i){if(!confirm('حذف العملية؟ سيتم تعديل رصيد الحساب والزبون.'))return;let t=db.transactions.find(x=>x.id===i);if(!t)return;let ac=db.accounts.find(x=>x.id===t.accountId);if(ac)ac.balance-=t.kind==='exchange'?(t.type==='buy'?t.lyd:-t.lyd)+(t.profit||0):(t.kind==='income'?t.lyd:-t.lyd);if(t.customerId){let c=db.customers.find(x=>x.id===t.customerId);if(c)c.balance-=t.type==='sell'?t.lyd:-t.lyd}db.transactions=db.transactions.filter(x=>x.id!==i);save();toast('تم حذف العملية')}
 function clearTxFilter(){tFrom.value='';tTo.value='';renderTransactions()}
@@ -318,6 +403,18 @@ function restore(e){let file=e.target.files[0];if(!file)return;let r=new FileRea
 function resetAll(){if(confirm('تحذير: سيتم حذف كل بيانات الحسابات والزبائن والعمليات نهائيًا من هذا الجهاز. هل أنت متأكد؟')){localStorage.removeItem(KEY);location.reload()}}
 function closeModal(){modal.classList.remove('show')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function calcChequeTransfers(){
+  const usdCash=+(document.getElementById('ctUsdCash')?.value||0), usdCheque=+(document.getElementById('ctUsdCheque')?.value||0);
+  const amount=+(document.getElementById('ctLydAmount')?.value||1000), egCash=+(document.getElementById('ctEgyptCash')?.value||0), tnCash=+(document.getElementById('ctTunisiaCash')?.value||0);
+  const egOut=document.getElementById('ctEgyptCheque'), tnOut=document.getElementById('ctTunisiaCheque'), formula=document.getElementById('ctFormula');
+  if(!egOut||!tnOut||!formula)return;
+  if(!(usdCash>0&&usdCheque>0&&amount>0)){egOut.textContent='—';tnOut.textContent='—';formula.textContent='أدخل سعر الدولار كاش والصك والمبلغ.';return;}
+  const factor=usdCash/usdCheque, chequeUsd=amount/usdCheque, cashUsd=chequeUsd*usdCash;
+  const eg=egCash>0?egCash*factor:null, tn=tnCash>0?tnCash*factor:null;
+  egOut.textContent=eg==null?'—':fmt(eg); tnOut.textContent=tn==null?'—':fmt(tn);
+  const egTotal=egCash>0?cashUsd*egCash:null, tnTotal=tnCash>0?cashUsd*tnCash:null;
+  formula.innerHTML=`<b>${fmt(amount)} د.ل ÷ ${fmt(usdCheque)} = ${fmt(chequeUsd)}$ صك</b><br>× ${fmt(usdCash)} = ${fmt(cashUsd)}$ كاش`+(eg!=null?`<br>🇪🇬 مصر: × ${fmt(egCash)} = ${fmt(egTotal)} ج.م → <b>سعر الصك ${fmt(eg)}</b>`:'')+(tn!=null?`<br>🇹🇳 تونس: × ${fmt(tnCash)} = ${fmt(tnTotal)} د.ت → <b>سعر الصك ${fmt(tn)}</b>`:'');
+}
 function calcCrossRate(){
   const eurLyd=Number(document.getElementById('calcEurLyd')?.value)||0;
   const eurDiff=Number(document.getElementById('calcEurDiff')?.value)||0;
@@ -341,5 +438,123 @@ calcCrossRate();
 </script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 autoRefreshGlobalRates();
+
+function num(id){
+  const el=document.getElementById(id);
+  return el ? parseFloat(el.value) : NaN;
+}
+function fmt(n, d=2){
+  return Number.isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}) : '—';
+}
+function calcSilver(){
+  const capital=num('silverCapitalUSD');
+  const buyUsd=num('silverBuyUsdRate');
+  const buyKg=num('silverBuyKgLYD');
+  const sellKg=num('silverSellKgLYD');
+  const sellUsd=num('silverSellUsdRate');
+
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e)e.textContent=v; };
+
+  if(!(capital>0 && buyUsd>0 && buyKg>0)){
+    set('silverCapitalLYD','—'); set('silverKg','—'); set('silverCostPerKgUSD','—');
+    set('silverSellValueLYD','—'); set('silverRecoveredUSD','—'); set('silverPnLUSD','—'); set('silverPnLPct','—');
+    const s=document.getElementById('silverStatus'); if(s)s.textContent='أدخل رأس المال وسعر الدولار وسعر شراء كيلو الفضة.';
+    return;
+  }
+
+  const capitalLYD=capital*buyUsd;
+  const kg=capitalLYD/buyKg;
+  const costPerKgUSD=buyKg/buyUsd;
+
+  set('silverCapitalLYD',fmt(capitalLYD)+' د.ل');
+  set('silverKg',fmt(kg,4)+' كجم');
+  set('silverCostPerKgUSD',fmt(costPerKgUSD)+' $');
+
+  if(sellKg>0 && sellUsd>0){
+    const sellValueLYD=kg*sellKg;
+    const recoveredUSD=sellValueLYD/sellUsd;
+    const pnl=recoveredUSD-capital;
+    const pct=(pnl/capital)*100;
+    set('silverSellValueLYD',fmt(sellValueLYD)+' د.ل');
+    set('silverRecoveredUSD',fmt(recoveredUSD)+' $');
+    set('silverPnLUSD',(pnl>=0?'+':'')+fmt(pnl)+' $');
+    set('silverPnLPct',(pct>=0?'+':'')+fmt(pct)+' %');
+    const s=document.getElementById('silverStatus');
+    if(s)s.textContent=(pnl>=0?'🟢 ربح — ':'🔴 خسارة — ')+'بعد بيع الفضة وشراء الدولار من جديد، رأس المال يعادل '+fmt(recoveredUSD)+' $.';
+  }else{
+    set('silverSellValueLYD','—'); set('silverRecoveredUSD','—'); set('silverPnLUSD','—'); set('silverPnLPct','—');
+    const s=document.getElementById('silverStatus'); if(s)s.textContent='أدخل سعر بيع كيلو الفضة وسعر الدولار وقت استرجاع رأس المال لإظهار الربح أو الخسارة.';
+  }
+}
+
+function closeInvoice(){
+  const m=document.getElementById('invoiceModal');
+  if(m)m.style.display='none';
+}
+function showInvoice(txId){
+  const tx=(db.transactions||[]).find(t=>String(t.id)===String(txId));
+  if(!tx){ alert('لم يتم العثور على العملية'); return; }
+  const qty=Number(tx.amount||tx.qty||0);
+  const rate=Number(tx.rate||0);
+  const total=Number(tx.total||tx.lydTotal||tx.output||0);
+  const linkedCustomer=(tx.customerId && db.customers||[]).find(c=>String(c.id)===String(tx.customerId));
+  const customer=tx.customerName||tx.customer||linkedCustomer?.name||'—';
+  const phone=tx.customerPhone||tx.phone||linkedCustomer?.phone||'—';
+  const currency=tx.currency||'—';
+  const date=tx.date||new Date().toLocaleDateString('ar-LY');
+  const time=tx.time||new Date().toLocaleTimeString('ar-LY',{hour:'2-digit',minute:'2-digit'});
+  const invoiceNo=tx.invoiceNo||('TRK-'+String(tx.id).slice(-8));
+  const note=tx.note||tx.notes||'—';
+  const logoSrc='logo.jpg';
+
+  const el=document.getElementById('printInvoice');
+  el.innerHTML=`
+    <div class="invoice-sheet" dir="rtl">
+      <div class="invoice-head">
+        <div class="invoice-company">
+          <img class="invoice-logo" src="${logoSrc}" alt="شركة التركي">
+          <h2>شركة التركي للصرافة والحوالات</h2>
+          <p>المشير — خلف مصرف ليبيا المركزي، بجوار زنقة الحرير</p>
+          <p>فرع تاجوراء الوسط — سوق الذهب، خلف بريد تاجوراء</p>
+          <p>0922142452 | 0919868210 | 0919444088</p>
+        </div>
+        <div class="invoice-meta">
+          <p><strong>رقم الفاتورة:</strong> ${invoiceNo}</p>
+          <p><strong>التاريخ:</strong> ${date}</p>
+          <p><strong>الوقت:</strong> ${time}</p>
+        </div>
+      </div>
+
+      <h3 class="invoice-title">فاتورة بيع / شراء عملة</h3>
+
+      <table class="invoice-table">
+        <tr><th>الزبون</th><td>${customer}</td><th>الهاتف</th><td>${phone}</td></tr>
+        <tr><th>نوع العملية</th><td>${tx.type==='sell'?'بيع':'شراء'}</td><th>العملة</th><td>${currency}</td></tr>
+        <tr><th>الكمية</th><td>${Number.isFinite(qty)?qty.toLocaleString('en-US',{maximumFractionDigits:6}):'—'}</td><th>السعر</th><td>${Number.isFinite(rate)?rate.toLocaleString('en-US',{maximumFractionDigits:6}):'—'}</td></tr>
+        <tr><th>الإجمالي</th><td colspan="3">${Number.isFinite(total)?total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'} د.ل</td></tr>
+        <tr><th>ملاحظات</th><td colspan="3">${note}</td></tr>
+      </table>
+
+      <div class="invoice-sign">
+        <div>توقيع الزبون</div>
+        <div>توقيع الشركة / الختم</div>
+      </div>
+    </div>
+    <div class="invoice-actions">
+      <button class="primary" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+    </div>`;
+  const m=document.getElementById('invoiceModal');
+  if(m)m.style.display='block';
+}
 </script>
+
+<div id="invoiceModal" class="modal" style="display:none" onclick="if(event.target.id==='invoiceModal')closeInvoice()">
+  <div class="sheet">
+    <div class="actions">
+      <strong>🧾 فاتورة العملية</strong>
+      <button onclick="closeInvoice()">✕ إغلاق</button>
+    </div>
+    <div id="printInvoice"></div>
+  </div>
+</div>
 </body></html>
