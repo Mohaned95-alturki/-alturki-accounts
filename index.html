@@ -206,7 +206,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}.notice{background:#f
 </section>
 
 <section id="settings" class="page"><h2>الإعدادات والنسخ الاحتياطي</h2>
-<div class="card"><h3>العملات</h3><div id="currencyList"></div><div class="actions"><button class="btn" onclick="openCurrency()">+ إضافة عملة</button></div></div>
+<div class="card"><h3>العملات وأسعارها</h3><p class="label">الأسعار المحفوظة داخل المنظومة. سعر الدولار الأساسي يُستخدم لحساب أسعار العملات الأخرى.</p><div id="currencyList"></div><div class="actions"><button class="btn" onclick="openCurrency()">+ إضافة عملة</button></div></div>
 <div class="card"><h3>بيانات التطبيق</h3><p class="label">البيانات محفوظة محليًا على هذا الجهاز. النسخة الاحتياطية هي الطريقة الموصى بها لحفظ نسخة خارجية.</p><div class="actions"><button class="btn" onclick="backup()">📥 تصدير نسخة احتياطية</button><button class="btn secondary" onclick="document.getElementById('restoreFile').click()">📤 استرجاع نسخة</button><input id="restoreFile" type="file" accept=".json" hidden onchange="restore(event)"><button class="btn danger" onclick="resetAll()">حذف كل البيانات</button></div></div>
 <div class="notice">ملاحظة: هذه نسخة PWA تعمل على الآيفون من المتصفح. حماية Face ID/التشفير والنسخ السحابي المتعدد المستخدمين تحتاج النسخة الأصلية المتصلة بخدمة آمنة.</div>
 </section>
@@ -431,7 +431,30 @@ function calcCrossRate(){
   if(e)e.innerHTML=`${fmt(eurLyd)} + ${fmt(eurDiff)} = <b>${fmt(eurTurkey)}</b> د.ل لليورو في تركيا<br>${fmt(eurTurkey)} ÷ ${fmt(eurUsd,6)} = <b>${fmt(usdBefore)}</b> د.ل للدولار قبل فرق تركيا → ليبيا<br>${fmt(usdBefore)} − ${fmt(usdDiff)} = <b>${fmt(usdFinal)}</b> د.ل للدولار المستنتج في طرابلس`;
 }
 function renderHome(){kCash.textContent=money(db.accounts.find(x=>x.name==='الكاش')?.balance||0);kAccounts.textContent=money(db.accounts.reduce((s,x)=>s+x.balance,0));kDebt.textContent=money(db.customers.reduce((s,x)=>s+Math.max(0,x.balance),0));kProfit.textContent=money(db.transactions.reduce((s,x)=>s+(x.profit||0),0));let a=db.transactions.slice().reverse().slice(0,6);homeRecent.innerHTML=a.length?a.map(t=>`<div class="item"><div class="row"><span>${kindName(t)}</span><b>${money(t.lyd)}</b></div><div class="label">${t.date} ${t.note?' — '+esc(t.note):''}</div></div>`).join(''):'<div class="empty">لا توجد عمليات بعد</div>'}
-function renderCurrencySettings(){currencyList.innerHTML=db.currencies.map(c=>`<div class="item"><div class="row"><b>${c.code} — ${esc(c.name)}</b><span>${c.rate}</span></div></div>`).join('')}
+function renderCurrencySettings(){
+  const el=document.getElementById('currencyList');
+  if(!el)return;
+  if(!Array.isArray(db.currencies))db.currencies=[];
+  if(!db.currencies.length){
+    el.innerHTML='<div class="empty">لا توجد عملات مضافة. اضغط «+ إضافة عملة» لإضافة أول عملة.</div>';
+    return;
+  }
+  el.innerHTML=db.currencies.map(c=>{
+    const rate=Number(c.rate);
+    const usdToUnit=Number(c.usdToUnit);
+    const shown=Number.isFinite(rate)?rate.toLocaleString('en-US',{maximumFractionDigits:6}):'—';
+    const global=Number.isFinite(usdToUnit)?usdToUnit.toLocaleString('en-US',{maximumFractionDigits:6}):'—';
+    return `<div class="item">
+      <div class="row">
+        <div><b>${esc(c.code)} — ${esc(c.name)}</b><div class="label">سعر العملة مقابل الدينار الليبي: ${shown} د.ل</div></div>
+        <div class="actions">
+          ${c.code==='LYD'||c.code==='USD'?'':'<button class="btn secondary" onclick="deleteCurrency(\''+esc(c.code)+'\')">حذف</button>'}
+        </div>
+      </div>
+      <div class="label" style="margin-top:6px">1 دولار = ${global} ${esc(c.code)}</div>
+    </div>`;
+  }).join('');
+}
 function renderAll(){renderSelects();renderHome();renderRates();renderTransactions();renderCustomers();renderAccounts();renderReports();renderCurrencySettings()}
 renderAll();
 calcCrossRate();
